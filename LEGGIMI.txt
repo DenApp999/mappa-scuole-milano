@@ -1,0 +1,51 @@
+MAPPA DELLE SCUOLE DI MILANO E PROVINCIA
+=========================================
+
+M.S.S.M. - Scuole secondarie di secondo grado (M.S.S.M. Milano):
+licei, istituti tecnici e istituti professionali di Milano e dei 34 comuni
+della Citta Metropolitana.
+
+Versione smartphone della mappa interattiva delle scuole di Milano e dei 34
+comuni della Citta Metropolitana (Milano, Sesto San Giovanni, Cinisello
+Balsamo, Rho, Legnano, Abbiategrasso, Inzago, Magenta, Vittuone, Pioltello,
+Buccinasco, San Giuliano Milanese, Segrate, Cernusco sul Naviglio, ...).
+
+Contenuto: 208 istituti (licei, istituti tecnici, istituti professionali),
+226 sedi, 37 indirizzi di studio.
+
+COME USARLA
+------------
+1. Aprire il link su Internet con il browser del telefono (Chrome, Safari).
+   Consigliato: dal menu del browser scegliere "Aggiungi alla schermata Home":
+   da li si apre a schermo intero, come un'app.
+2. Barra in alto: ricerca per nome scuola, via, comune o telefono; l'icona
+   a destra apre i filtri (ordine di istruzione, gestione statale/paritaria,
+   comune, indirizzo di studio).
+3. Il foglio in basso si trascina verso l'alto: elenco completo delle scuole.
+   Toccare una scuola per aprire indirizzi, telefono, sito web e mappa.
+4. Pulsanti rotondi in basso a destra: adatta la mappa a tutta l'area,
+   legenda colori, condivisione.
+
+SINTESI SCELTE
+--------------
+- I dati provengono dagli elenchi pubblici della Citta Metropolitana di
+  Milano (licei e scuole secondarie di secondo grado).
+- Le posizioni sulla mappa sono state calcolate geocodificando gli indirizzi
+  postali: 4 sedi sono indicate con un marker "posizione approssimativa"
+  (indirizzo non trovato con precisione, il marker e' posto nel centro del
+  comune). Il dettaglio della scuola indica l'indirizzo esatto.
+- La mappa usa le tile di Google Maps e, se non raggiungibili, passa
+  automaticamente a OpenStreetMap. Serve una connessione internet.
+
+PRIVACY
+-------
+La pagina non raccoglie dati personali, non usa cookie, non richiede
+account e non invia informazioni a servizi di profilaggio: l'unica
+connessione esterna serve per scaricare la mappa di fondo e la
+libreria Leaflet. Le scuole sono pubbliche.
+
+SUGGERIMENTO PER LA SCUOLA
+--------------------------
+Se la scuola vuole pubblicizzare la mappa, puo' stampare il codice QR
+del link e affiggerlo in segreteria o in bacheca: si scansiona e si apre
+direttamente la mappa sul telefono.

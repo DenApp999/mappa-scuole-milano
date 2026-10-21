@@ -1,0 +1,6433 @@
+<!DOCTYPE html>
+<html lang="it"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1216">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Mappa scuole superiori di Milano e provincia (M.S.S.M.)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --bg:#0f1216; --panel:#161b22; --panel2:#1c232c; --line:#2a3440;
+    --txt:#e6edf3; --muted:#93a1b0; --blue:#4f8cff; --green:#25b26b; --amber:#f0a020;
+    --safe-b:env(safe-area-inset-bottom,0px);
+    --safe-t:env(safe-area-inset-top,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+  body{
+    font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--txt);
+    -webkit-user-select:none;user-select:none;
+  }
+  button,input,select{font:inherit;color:inherit}
+  #app{position:fixed;inset:0}
+  #map{position:absolute;inset:0;background:#101418;z-index:0}
+
+  /* ---------- barra superiore ---------- */
+  .topbar{
+    position:absolute;top:0;left:0;right:0;z-index:700;
+    padding:calc(var(--safe-t) + 8px) 10px 10px;
+    background:linear-gradient(180deg,rgba(15,18,22,.96) 0%,rgba(15,18,22,.85) 60%,rgba(15,18,22,0) 100%);
+    display:flex;gap:8px;align-items:center;
+  }
+  .topbar .wrap{display:flex;gap:8px;align-items:center;width:100%}
+  #search{
+    flex:1;height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(13,17,23,.95);font-size:15px;outline:none;
+  }
+  #search:focus{border-color:var(--blue)}
+  .iconbtn{
+    width:42px;height:42px;flex:0 0 42px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(13,17,23,.95);display:flex;align-items:center;justify-content:center;cursor:pointer;
+    position:relative;
+  }
+  .iconbtn:active{background:#1c232c}
+  .iconbtn svg{width:20px;height:20px;fill:none;stroke:var(--txt);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .iconbtn .badge{
+    position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;
+    background:var(--blue);color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 5px;font-weight:700;
+  }
+  .iconbtn .badge:empty{display:none}
+
+  /* ---------- pannello filtri ---------- */
+  #filters{
+    position:absolute;inset:0;z-index:900;background:var(--panel);
+    display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s ease;
+  }
+  #filters.open{transform:translateY(0)}
+  .fhead{
+    display:flex;align-items:center;gap:10px;padding:calc(var(--safe-t) + 10px) 14px 10px;
+    border-bottom:1px solid var(--line);background:var(--panel2);
+  }
+  .fhead h2{margin:0;font-size:16px;flex:1}
+  .fbody{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px 30px}
+  .fblock{margin-bottom:18px}
+  .fblock h3{margin:0 0 8px;font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{
+    border:1px solid var(--line);background:#0d1117;color:var(--muted);
+    padding:8px 12px;border-radius:999px;font-size:13px;cursor:pointer;min-height:36px;
+    display:inline-flex;align-items:center;
+  }
+  .chip:active{border-color:#41505f}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .chip.on.green{background:var(--green);border-color:var(--green)}
+  .chip.on.amber{background:var(--amber);border-color:var(--amber);color:#241a06}
+  .chip .n{opacity:.75;font-size:11px;margin-left:5px}
+  select{
+    width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+    background:#0d1117;color:var(--txt);font-size:15px;outline:none;min-height:44px;
+  }
+  #indChips{max-height:none}
+  .indgroup{margin-top:10px}
+  .indgroup h4{margin:0 0 6px;font-size:11px;color:var(--muted);font-weight:600}
+  .fbtns{display:flex;gap:10px;padding:12px 14px calc(var(--safe-b) + 12px);border-top:1px solid var(--line);background:var(--panel2)}
+  .btn{
+    flex:1;border:1px solid var(--line);background:#0d1117;color:var(--txt);
+    padding:12px 14px;border-radius:12px;font-size:14px;cursor:pointer;min-height:46px;
+  }
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+
+  /* ---------- foglio elenco ---------- */
+  #sheet{
+    position:absolute;left:0;right:0;bottom:0;z-index:800;
+    background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+    box-shadow:0 -12px 30px rgba(0,0,0,.55);
+    display:flex;flex-direction:column;height:150px;
+    transition:height .22s ease;
+  }
+  #sheet.half{height:52vh}
+  #sheet.full{height:88vh}
+  .handle{padding:8px 0 4px;display:flex;justify-content:center;cursor:grab;touch-action:none}
+  .handle i{width:40px;height:4px;border-radius:2px;background:#3b4652;display:block}
+  .shead{display:flex;align-items:center;gap:10px;padding:2px 14px 10px}
+  .shead .t{font-size:13px;color:var(--muted);flex:1}
+  .shead .t b{color:var(--txt)}
+  .slist{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 12px calc(var(--safe-b) + 20px)}
+  .slist::-webkit-scrollbar{width:0}
+
+  /* ---------- card ---------- */
+  .card{
+    border:1px solid var(--line);background:var(--panel2);border-radius:12px;
+    padding:11px 12px;margin-bottom:8px;
+  }
+  .card:active{border-color:var(--blue)}
+  .card .nm{font-size:14.5px;font-weight:600;line-height:1.25}
+  .badge{
+    display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;
+    text-transform:uppercase;letter-spacing:.5px;vertical-align:middle;margin-left:6px;font-weight:700;
+  }
+  .badge.statale{background:rgba(79,140,255,.16);color:#7fb0ff;border:1px solid rgba(79,140,255,.45)}
+  .badge.paritaria{background:rgba(37,178,107,.16);color:#5fd39b;border:1px solid rgba(37,178,107,.45)}
+  .badge.ord-liceale{background:rgba(79,140,255,.16);color:#7fb0ff;border:1px solid rgba(79,140,255,.45)}
+  .badge.ord-tecnica{background:rgba(37,178,107,.16);color:#5fd39b;border:1px solid rgba(37,178,107,.45)}
+  .badge.ord-professionale{background:rgba(240,160,32,.16);color:#f0a020;border:1px solid rgba(240,160,32,.45)}
+  .tags{margin:7px 0 0;display:flex;flex-wrap:wrap;gap:4px}
+  .tag{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .addrs{margin:7px 0 0;font-size:12.5px;color:#c6d1dc}
+  .addrs div{display:flex;gap:6px;align-items:baseline}
+  .addrs span.d{color:var(--muted)}
+  .meta{margin-top:9px;display:flex;gap:8px;align-items:center;font-size:12.5px;flex-wrap:wrap}
+  .tel{color:#cbd5e1}
+  .mini{
+    font-size:11.5px;color:#7fb0ff;background:#0d1117;border:1px solid var(--line);
+    border-radius:8px;padding:6px 10px;cursor:pointer;min-height:32px;
+  }
+  .mini:active{border-color:var(--blue)}
+  .note{margin-top:6px;font-size:11.5px;color:var(--amber)}
+
+  /* ---------- dettaglio ---------- */
+  #modal{
+    position:absolute;inset:0;z-index:950;background:var(--bg);
+    display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s ease;
+  }
+  #modal.open{transform:translateY(0)}
+  .mhead{
+    display:flex;align-items:center;gap:10px;padding:calc(var(--safe-t) + 10px) 12px 10px;
+    border-bottom:1px solid var(--line);background:var(--panel2);
+  }
+  .mhead h2{margin:0;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mbody{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px calc(var(--safe-b) + 30px)}
+  #modal h3{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+  .mbody .row{margin-top:12px;font-size:14px}
+  .mbody .row b{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px}
+  .sede{padding:10px 0;border-top:1px solid var(--line)}
+  .sede .a{font-size:14px}
+  .sede .l{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .sede .l a,.sede .l button{
+    font-size:12.5px;text-decoration:none;color:#7fb0ff;border:1px solid var(--line);
+    border-radius:9px;padding:9px 12px;background:#0d1117;cursor:pointer;min-height:38px;
+  }
+  .sede .l a:active,.sede .l button:active{border-color:var(--blue)}
+  #modal iframe{width:100%;height:210px;border:0;border-radius:10px;margin-top:10px;background:#0d1117}
+  .approx{font-size:10.5px;color:var(--amber);border:1px solid rgba(240,160,32,.4);border-radius:5px;padding:0 5px}
+
+  /* ---------- legenda / bottoni mappa ---------- */
+  .fab{
+    position:absolute;right:12px;z-index:750;background:rgba(13,17,23,.95);
+    border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden;
+  }
+  .fab button{
+    display:block;width:42px;height:42px;border:0;background:transparent;cursor:pointer;
+    color:var(--txt);font-size:18px;line-height:42px;text-align:center;
+  }
+  .fab button:active{background:#1c232c}
+  #legend{
+    position:absolute;right:12px;z-index:760;background:rgba(15,18,22,.94);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12px;color:#c6d1dc;
+    display:none;
+  }
+  #legend.open{display:block}
+  #legend .bases{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+  #legend .chip{padding:6px 10px;font-size:11.5px;min-height:32px}
+  #legend div.row{display:flex;align-items:center;gap:7px;margin:4px 0}
+  .dot{width:11px;height:11px;border-radius:50%;border:2px solid #fff}
+  .dot.s{background:var(--blue)} .dot.p{background:var(--green)} .dot.a{background:var(--amber)}
+  .dot.hollow{background:#11161c;border:2px dashed #93a1b0}
+  .leaflet-bottom.leaflet-right{bottom:170px}
+  .leaflet-top.leaflet-left{top:calc(var(--safe-t) + 62px)}
+  .leaflet-control-zoom a{background:#161b22;color:var(--txt);border-color:#2a3440}
+  .leaflet-control-attribution{background:rgba(15,18,22,.8);color:var(--muted)}
+  .leaflet-control-attribution a{color:#7fb0ff}
+
+  #toast{
+    position:absolute;left:50%;bottom:170px;transform:translateX(-50%);
+    background:#0d1117;border:1px solid var(--line);color:var(--txt);
+    padding:9px 14px;border-radius:999px;font-size:12.5px;z-index:960;opacity:0;transition:opacity .3s;pointer-events:none;
+  }
+  #toast.show{opacity:1}
+
+  @media (min-width:760px){
+    #sheet{left:auto;right:16px;bottom:16px;width:420px;border-radius:16px;border:1px solid var(--line)}
+    #sheet.half{height:60vh} #sheet.full{height:84vh}
+    #filters{left:auto;right:0;width:420px;top:0;bottom:0;transform:translateX(100%);border-left:1px solid var(--line)}
+    #filters.open{transform:translateX(0)}
+    #modal{left:auto;right:0;top:0;bottom:0;width:420px;border-left:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div class="topbar">
+    <div class="wrap">
+      <input id="search" type="search" placeholder="Cerca scuola, via, comune o telefono." autocomplete="off" enterkeyhint="search">
+      <button class="iconbtn" id="openFilters" aria-label="Filtri">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        <span class="badge" id="filterBadge"></span>
+      </button>
+    </div>
+  </div>
+
+  <div id="filters">
+    <div class="fhead">
+      <h2>Filtri</h2>
+      <button class="iconbtn" id="closeFilters" aria-label="Chiudi">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="fbody">
+      <div class="fblock">
+        <h3>Ordine di istruzione</h3>
+        <div class="chips" id="ordChips"></div>
+      </div>
+      <div class="fblock">
+        <h3>Gestione</h3>
+        <div class="chips" id="tipoChips">
+          <span class="chip on" data-tipo="statale">Statali</span>
+          <span class="chip on green" data-tipo="paritaria">Paritarie</span>
+        </div>
+      </div>
+      <div class="fblock">
+        <h3>Comune</h3>
+        <select id="comune"><option value="">Tutti i comuni</option></select>
+      </div>
+      <div class="fblock">
+        <h3>Indirizzo di studio</h3>
+        <div id="indChips"></div>
+      </div>
+    </div>
+    <div class="fbtns">
+      <button class="btn" id="reset">Azzera filtri</button>
+      <button class="btn primary" id="applyFilters">Mostra risultati</button>
+    </div>
+  </div>
+
+  <div id="sheet">
+    <div class="handle" id="handle"><i></i></div>
+    <div class="shead">
+      <div class="t" id="sheetTitle"></div>
+    </div>
+    <div class="slist" id="list"></div>
+  </div>
+
+  <div id="modal">
+    <div class="mhead">
+      <h2 id="modalTitle">Dettaglio</h2>
+      <button class="iconbtn" id="closeModal" aria-label="Chiudi">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="mbody" id="detail"></div>
+  </div>
+
+  <div class="fab" style="bottom:270px">
+    <button id="btnShare" title="Condividi" aria-label="Condividi">&#8667;</button>
+  </div>
+  <div class="fab" style="bottom:170px">
+    <button id="btnFit" title="Adatta a tutto" aria-label="Adatta a tutto">&#9678;</button>
+  </div>
+  <div class="fab" style="bottom:220px">
+    <button id="btnLegend" title="Legenda" aria-label="Legenda">&#8801;</button>
+  </div>
+  <div id="legend">
+    <div class="bases">
+      <span class="chip on" data-base="google">Google Maps</span>
+      <span class="chip" data-base="sat">Satellite</span>
+      <span class="chip" data-base="osm">OpenStreetMap</span>
+    </div>
+    <div class="row"><span class="dot s"></span> Licei</div>
+    <div class="row"><span class="dot p"></span> Istituti tecnici</div>
+    <div class="row"><span class="dot a"></span> Istituti professionali</div>
+    <div class="row"><span class="dot hollow"></span> Scuola paritaria</div>
+    <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)">
+      M.S.S.M. &middot; Scuole secondarie di II grado di Milano e dei 34 comuni<br>
+      Dati: Città Metropolitana di Milano &middot; 208 istituti, 226 sedi<br>
+      <a href="scuole_milano.csv" download style="color:#7fb0ff;text-decoration:none">Scarica l'elenco completo (CSV)</a>
+    </div>
+  </div>
+  <div id="toast"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA = {
+ "indirizzi": [
+  {
+   "id": "g1",
+   "ordine": "liceale",
+   "label": "Liceo artistico-architettura e ambiente",
+   "gruppo": "Istruzione liceale - Liceo artistico-architettura e ambiente"
+  },
+  {
+   "id": "g2",
+   "ordine": "liceale",
+   "label": "Liceo artistico-arti figurative",
+   "gruppo": "Istruzione liceale - Liceo artistico-arti figurative"
+  },
+  {
+   "id": "g3",
+   "ordine": "liceale",
+   "label": "Liceo artistico-audiovisivo e multimediale",
+   "gruppo": "Istruzione liceale - Liceo artistico-audiovisivo e multimediale"
+  },
+  {
+   "id": "g4",
+   "ordine": "liceale",
+   "label": "Liceo artistico-design",
+   "gruppo": "Istruzione liceale - Liceo artistico-design"
+  },
+  {
+   "id": "g5",
+   "ordine": "liceale",
+   "label": "Liceo artistico-design e interior design",
+   "gruppo": "Istruzione liceale - Liceo artistico-design e interior design"
+  },
+  {
+   "id": "g6",
+   "ordine": "liceale",
+   "label": "Liceo artistico-grafica",
+   "gruppo": "Istruzione liceale - Liceo artistico-grafica"
+  },
+  {
+   "id": "g7",
+   "ordine": "liceale",
+   "label": "Liceo artistico-scenografia",
+   "gruppo": "Istruzione liceale - Liceo artistico-scenografia"
+  },
+  {
+   "id": "g8",
+   "ordine": "liceale",
+   "label": "Liceo classico",
+   "gruppo": "Istruzione liceale - Liceo classico"
+  },
+  {
+   "id": "g9",
+   "ordine": "liceale",
+   "label": "Liceo del made in italy",
+   "gruppo": "Istruzione liceale - Liceo del made in italy"
+  },
+  {
+   "id": "g10",
+   "ordine": "liceale",
+   "label": "Liceo delle scienze umane",
+   "gruppo": "Istruzione liceale - Liceo delle scienze umane"
+  },
+  {
+   "id": "g11",
+   "ordine": "liceale",
+   "label": "Liceo delle scienze umane opzione economico sociale",
+   "gruppo": "Istruzione liceale - Liceo delle scienze umane opzione economico sociale"
+  },
+  {
+   "id": "g12",
+   "ordine": "liceale",
+   "label": "Liceo linguistico",
+   "gruppo": "Istruzione liceale - Liceo linguistico"
+  },
+  {
+   "id": "g13",
+   "ordine": "liceale",
+   "label": "Liceo musicale e coreutico-coreutica",
+   "gruppo": "Istruzione liceale - Liceo musicale e coreutico-coreutica"
+  },
+  {
+   "id": "g14",
+   "ordine": "liceale",
+   "label": "Liceo musicale e coreutico-musicale",
+   "gruppo": "Istruzione liceale - Liceo musicale e coreutico-musicale"
+  },
+  {
+   "id": "g15",
+   "ordine": "liceale",
+   "label": "Liceo scientifico",
+   "gruppo": "Istruzione liceale - Liceo scientifico"
+  },
+  {
+   "id": "g16",
+   "ordine": "liceale",
+   "label": "Liceo scientifico a indirizzo sportivo",
+   "gruppo": "Istruzione liceale - Liceo scientifico a indirizzo sportivo"
+  },
+  {
+   "id": "g17",
+   "ordine": "liceale",
+   "label": "Liceo scientifico opzione scienze applicate",
+   "gruppo": "Istruzione liceale - Liceo scientifico opzione scienze applicate"
+  },
+  {
+   "id": "g18",
+   "ordine": "tecnica",
+   "label": "Agraria, agroalimentare e agroindustria (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Agraria, agroalimentare e agroindustria (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g19",
+   "ordine": "tecnica",
+   "label": "Amministrazione, finanza e marketing (Settore economico)",
+   "gruppo": "Istruzione tecnica - Amministrazione, finanza e marketing (Settore economico)"
+  },
+  {
+   "id": "g20",
+   "ordine": "tecnica",
+   "label": "Chimica, materiali e biotecnologie (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Chimica, materiali e biotecnologie (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g21",
+   "ordine": "tecnica",
+   "label": "Costruzioni, ambiente e territorio (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Costruzioni, ambiente e territorio (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g22",
+   "ordine": "tecnica",
+   "label": "Elettronica ed elettrotecnica (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Elettronica ed elettrotecnica (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g23",
+   "ordine": "tecnica",
+   "label": "Grafica e comunicazione (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Grafica e comunicazione (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g24",
+   "ordine": "tecnica",
+   "label": "Informatica e telecomunicazioni (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Informatica e telecomunicazioni (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g25",
+   "ordine": "tecnica",
+   "label": "Meccanica, meccatronica ed energia (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Meccanica, meccatronica ed energia (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g26",
+   "ordine": "tecnica",
+   "label": "Sistema moda (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Sistema moda (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g27",
+   "ordine": "tecnica",
+   "label": "Trasporti e logistica (Settore tecnologico ambientale)",
+   "gruppo": "Istruzione tecnica - Trasporti e logistica (Settore tecnologico ambientale)"
+  },
+  {
+   "id": "g28",
+   "ordine": "tecnica",
+   "label": "Turismo, beni culturali e ambientali (Settore economico)",
+   "gruppo": "Istruzione tecnica - Turismo, beni culturali e ambientali (Settore economico)"
+  },
+  {
+   "id": "g29",
+   "ordine": "professionale",
+   "label": "Agricoltura, sviluppo rurale, valorizzazione dei prodotti del territorio e gestione delle risorse forestali e montane",
+   "gruppo": "Istruzione professionale - Agricoltura, sviluppo rurale, valorizzazione dei prodotti del territorio e gestione delle risorse forestali e montane"
+  },
+  {
+   "id": "g30",
+   "ordine": "professionale",
+   "label": "Arti ausiliarie delle professioni sanitarie odontotecnico",
+   "gruppo": "Istruzione professionale - Arti ausiliarie delle professioni sanitarie odontotecnico"
+  },
+  {
+   "id": "g31",
+   "ordine": "professionale",
+   "label": "Arti ausiliarie delle professioni sanitarie ottico",
+   "gruppo": "Istruzione professionale - Arti ausiliarie delle professioni sanitarie ottico"
+  },
+  {
+   "id": "g32",
+   "ordine": "professionale",
+   "label": "Enogastronomia e ospitalità alberghiera",
+   "gruppo": "Istruzione professionale - Enogastronomia e ospitalità alberghiera"
+  },
+  {
+   "id": "g33",
+   "ordine": "professionale",
+   "label": "Industria e artigianato per il made in italy",
+   "gruppo": "Istruzione professionale - Industria e artigianato per il made in italy"
+  },
+  {
+   "id": "g34",
+   "ordine": "professionale",
+   "label": "Manutenzione e assistenza tecnica",
+   "gruppo": "Istruzione professionale - Manutenzione e assistenza tecnica"
+  },
+  {
+   "id": "g35",
+   "ordine": "professionale",
+   "label": "Servizi commerciali",
+   "gruppo": "Istruzione professionale - Servizi commerciali"
+  },
+  {
+   "id": "g36",
+   "ordine": "professionale",
+   "label": "Servizi culturali e dello spettacolo",
+   "gruppo": "Istruzione professionale - Servizi culturali e dello spettacolo"
+  },
+  {
+   "id": "g37",
+   "ordine": "professionale",
+   "label": "Servizi per la sanità e l'assistenza sociale",
+   "gruppo": "Istruzione professionale - Servizi per la sanità e l'assistenza sociale"
+  }
+ ],
+ "comuni": [
+  "Milano",
+  "Abbiategrasso",
+  "Arconate",
+  "Arese",
+  "Bollate",
+  "Cassano D'Adda",
+  "Castano Primo",
+  "Cernusco Sul Naviglio",
+  "Cinisello Balsamo",
+  "Cologno Monzese",
+  "Corbetta",
+  "Cornaredo",
+  "Corsico",
+  "Cusano Milanino",
+  "Garbagnate Milanese",
+  "Gorgonzola",
+  "Inveruno",
+  "Inzago",
+  "Legnano",
+  "Magenta",
+  "Melegnano",
+  "Melzo",
+  "Opera",
+  "Paderno Dugnano",
+  "Parabiago",
+  "Pioltello",
+  "Rho",
+  "Rozzano",
+  "San Donato Milanese",
+  "San Giuliano Milanese",
+  "Sesto San Giovanni",
+  "Trezzo Sull'Adda",
+  "Villa Cortese",
+  "Vittuone"
+ ],
+ "scuole": [
+  {
+   "n": "BDC School",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0235986613",
+   "sito": "https://www.bdcschool.eu/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via Dei Fontanili 3",
+     "c": "Milano",
+     "raw": "Via Dei Fontanili 3, MILANO",
+     "lat": 45.4423371,
+     "lon": 9.1888294,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Bilingual European School",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0266117449",
+   "sito": "https://www.beschool.eu/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Resegone, 1 A",
+     "c": "Milano",
+     "raw": "Via Resegone, 1 A, MILANO",
+     "lat": 45.4957061,
+     "lon": 9.1773248,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Civico Polo Scolastico - I.T.E. Manzoni",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 88441393/4",
+   "sito": "https://www.lamanzoni.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Deledda, 11",
+     "c": "Milano",
+     "raw": "Via Deledda, 11, MILANO",
+     "lat": 45.4876024,
+     "lon": 9.2158878,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Civico Polo Scolastico - Linguistico Manzoni",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 88441393/4",
+   "sito": "https://www.lamanzoni.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via Deledda, 11",
+     "c": "Milano",
+     "raw": "Via Deledda, 11, MILANO",
+     "lat": 45.4876024,
+     "lon": 9.2158878,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Collegio \"San Carlo\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 430631",
+   "sito": "https://www.collegiosancarlo.it",
+   "note": "Anche percorso quadriennale",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g11",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Corso Magenta, 71",
+     "c": "Milano",
+     "raw": "Corso Magenta, 71, MILANO",
+     "lat": 45.4656087,
+     "lon": 9.1697844,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Convitto Nazionale \"P. Longone\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 88444508",
+   "sito": "https://www.convittolongone.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11",
+    "g13"
+   ],
+   "s": [
+    {
+     "a": "Via Vigevano, 19",
+     "c": "Milano",
+     "raw": "Via Vigevano, 19, MILANO",
+     "lat": 45.4528802,
+     "lon": 9.173626,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Educandato \"Setti Carraro Dalla Chiesa\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 76001425",
+   "sito": "https://www.setticarraro.edu.it",
+   "note": "Anche classico europeo ESABAC",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Passione, 12",
+     "c": "Milano",
+     "raw": "Via Passione, 12, MILANO",
+     "lat": 45.4650194,
+     "lon": 9.2022976,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Educandato \"Setti Carraro Dalla Chiesa\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 76001425",
+   "sito": "https://www.setticarraro.edu.it",
+   "note": "Anche indirizzi ESABAC e internazionale spagnolo",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via della passione, 12",
+     "c": "Milano",
+     "raw": "Via della passione, 12, MILANO",
+     "lat": 45.4641943,
+     "lon": 9.1896346,
+     "acc": "comune"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Gentileschi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 3087296",
+   "sito": "https://www.gentileschi.it",
+   "note": "Anche percorso quadriennale",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Natta, 11",
+     "c": "Milano",
+     "raw": "Via Natta, 11, MILANO",
+     "lat": 45.4889621,
+     "lon": 9.1245371,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"B. Russell\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 6430051/2",
+   "sito": "https://www.iis-russell.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g10",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Gatti, 16",
+     "c": "Milano",
+     "raw": "Via Gatti, 16, MILANO",
+     "lat": 45.5059127,
+     "lon": 9.1906884,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Bertarelli Ferraris\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 58314012",
+   "sito": "https://www.bertarelliferraris.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Corso di Porta Romana, 110",
+     "c": "Milano",
+     "raw": "Corso di Porta Romana, 110, MILANO",
+     "lat": 45.4546996,
+     "lon": 9.1979058,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Bertarelli Ferraris\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 58314012",
+   "sito": "https://www.bertarelliferraris.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g34",
+    "g35"
+   ],
+   "s": [
+    {
+     "a": "Via G.Romano, 4",
+     "c": "Milano",
+     "raw": "Via G.Romano, 4, MILANO",
+     "lat": 45.4485605,
+     "lon": 9.199973,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"C. Cattaneo\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 862256",
+   "sito": "https://www.iiscattaneomilano.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Piazza Vetra, 9",
+     "c": "Milano",
+     "raw": "Piazza Vetra, 9, MILANO",
+     "lat": 45.4586367,
+     "lon": 9.1828409,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"C. Cattaneo\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 862256",
+   "sito": "https://www.iiscattaneomilano.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "piazza della Vetra 9",
+     "c": "Milano",
+     "raw": "piazza della Vetra 9, MILANO",
+     "lat": 45.4586367,
+     "lon": 9.1828409,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"C. Varalli\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "0289540272",
+   "sito": "https://www.iisvaralli.edu.it/",
+   "note": "*corso in attesa di ratifica da parte di Regione Lombardia",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g12",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "via U. Dini 7",
+     "c": "Milano",
+     "raw": "via U. Dini 7, MILANO",
+     "lat": 45.4972882,
+     "lon": 9.1896404,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Caterina da Siena\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2824973",
+   "sito": "https://www.iiscaterinadasiena.edu.it",
+   "note": "Settori: produzioni tessili sartoriali",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g26",
+    "g33",
+    "g35"
+   ],
+   "s": [
+    {
+     "a": "Viale Lombardia, 89",
+     "c": "Milano",
+     "raw": "Viale Lombardia, 89, MILANO",
+     "lat": 45.4882053,
+     "lon": 9.2233456,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Cavalieri-Marignoni\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02435234",
+   "sito": "https://www.cavalierimarignoni.it/",
+   "note": "",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g28",
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Olona, 14",
+     "c": "Milano",
+     "raw": "Via Olona, 14, MILANO",
+     "lat": 45.4599704,
+     "lon": 9.1711403,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Curiel, 19",
+     "c": "Milano",
+     "raw": "Via Curiel, 19, MILANO",
+     "lat": 45.438924,
+     "lon": 9.1615544,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Melzi D'Eril, 9",
+     "c": "Milano",
+     "raw": "Via Melzi D'Eril, 9, MILANO",
+     "lat": 45.4781523,
+     "lon": 9.1732854,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Demostene, 40",
+     "c": "Milano",
+     "raw": "Via Demostene, 40, MILANO",
+     "lat": 45.5073001,
+     "lon": 9.2258966,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Curie-Sraffa\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 4525866",
+   "sito": "https://www.iiscuriesraffa.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g19",
+    "g20",
+    "g24",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via F.lli Zoia, 130",
+     "c": "Milano",
+     "raw": "Via F.lli Zoia, 130, MILANO",
+     "lat": 45.4689074,
+     "lon": 9.1096691,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Torricelli\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 89511344",
+   "sito": "https://www.torricellimi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g16",
+    "g17",
+    "g20",
+    "g24",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via U.Dini, 7",
+     "c": "Milano",
+     "raw": "Via U.Dini, 7, MILANO",
+     "lat": 45.4972882,
+     "lon": 9.1896404,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"F. Besta\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2563073",
+   "sito": "https://www.fbesta.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g19",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Don Calabria, 16",
+     "c": "Milano",
+     "raw": "Via Don Calabria, 16, MILANO",
+     "lat": 45.4985293,
+     "lon": 9.2408941,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Cardano\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 38005599",
+   "sito": "https://www.iiscardano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g15",
+    "g16",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Natta, 11",
+     "c": "Milano",
+     "raw": "Via Natta, 11, MILANO",
+     "lat": 45.4889621,
+     "lon": 9.1245371,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Galilei\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 40091762",
+   "sito": "https://www.galilux.edu.it",
+   "note": "Opzione tecnologie dell'occhiale",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g23",
+    "g24",
+    "g25",
+    "g31",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Paravia, 31",
+     "c": "Milano",
+     "raw": "Via Paravia, 31, MILANO",
+     "lat": 45.4690757,
+     "lon": 9.127375,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Galilei\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 47997859",
+   "sito": "https://www.galilux.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g34",
+    "g36"
+   ],
+   "s": [
+    {
+     "a": "Via degli ulivi, 6",
+     "c": "Milano",
+     "raw": "Via degli ulivi, 6, MILANO",
+     "lat": 45.4526917,
+     "lon": 9.0782676,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Giorgi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 89400450",
+   "sito": "https://giorgimi.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g22",
+    "g24",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Viale Liguria, 21",
+     "c": "Milano",
+     "raw": "Viale Liguria, 21, MILANO",
+     "lat": 45.444208,
+     "lon": 9.1695359,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. L. Lagrange\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 66222804",
+   "sito": "https://www.iislagrange.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g16",
+    "g17",
+    "g22",
+    "g24",
+    "g25",
+    "g32"
+   ],
+   "s": [
+    {
+     "a": "Via Litta Modignani, 65",
+     "c": "Milano",
+     "raw": "Via Litta Modignani, 65, MILANO",
+     "lat": 45.5209565,
+     "lon": 9.1572636,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"J. C. Maxwell\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2825958",
+   "sito": "https://www.maxwell.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g25",
+    "g27"
+   ],
+   "s": [
+    {
+     "a": "Via Don Calabria, 2",
+     "c": "Milano",
+     "raw": "Via Don Calabria, 2, MILANO",
+     "lat": 45.4975575,
+     "lon": 9.2396658,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"J. C. Maxwell\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2825958",
+   "sito": "https://www.maxwell.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Narni, 18",
+     "c": "Milano",
+     "raw": "Via Narni, 18, MILANO",
+     "lat": 45.5016791,
+     "lon": 9.2482776,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"L. Cremona\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 606601",
+   "sito": "https://www.iiscremona.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Viale Marche, 71",
+     "c": "Milano",
+     "raw": "Viale Marche, 71, MILANO",
+     "lat": 45.4961884,
+     "lon": 9.1914489,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"L. Cremona\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 606250",
+   "sito": "https://www.iiscremona.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Viale Marche, 73",
+     "c": "Milano",
+     "raw": "Viale Marche, 73, MILANO",
+     "lat": 45.4965363,
+     "lon": 9.1901604,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"L. Galvani\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 6435651",
+   "sito": "https://www.iisgalvanimi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g17",
+    "g22",
+    "g24",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via Gatti, 14",
+     "c": "Milano",
+     "raw": "Via Gatti, 14, MILANO",
+     "lat": 45.5060059,
+     "lon": 9.1907361,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Marelli Dudovich\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 36519076",
+   "sito": "https://www.marellidudovich.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g24",
+    "g30",
+    "g34",
+    "g35",
+    "g36"
+   ],
+   "s": [
+    {
+     "a": "Via Livigno, 11",
+     "c": "Milano",
+     "raw": "Via Livigno, 11, MILANO",
+     "lat": 45.5005335,
+     "lon": 9.178124,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Marelli Dudovich\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 36519076",
+   "sito": "https://www.marellidudovich.edu.it",
+   "note": "Settore produzioni tessili sartoriali",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33"
+   ],
+   "s": [
+    {
+     "a": "Via Oderzo, 3",
+     "c": "Milano",
+     "raw": "Via Oderzo, 3, MILANO",
+     "lat": 45.4845668,
+     "lon": 9.1393311,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"N. Moreschi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 48005171",
+   "sito": "https://www.istitutomoreschi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g15",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via San Michele del Carso, 25",
+     "c": "Milano",
+     "raw": "Via San Michele del Carso, 25, MILANO",
+     "lat": 45.4626543,
+     "lon": 9.1642051,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Oriani Mazzini\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 719130",
+   "sito": "https://www.orianimazzini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g11",
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Zante, 34",
+     "c": "Milano",
+     "raw": "Via Zante, 34, MILANO",
+     "lat": 45.4555499,
+     "lon": 9.2488232,
+     "acc": "ok"
+    },
+    {
+     "a": "Viale Liguria, 21",
+     "c": "Milano",
+     "raw": "Viale Liguria, 21, MILANO",
+     "lat": 45.444208,
+     "lon": 9.1695359,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Pisa, 5/2",
+     "c": "Milano",
+     "raw": "Via Pisa, 5/2, MILANO",
+     "lat": 45.4527364,
+     "lon": 9.119717,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"P. Frisi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 3575716",
+   "sito": "https://www.iisfrisi.edu.it",
+   "note": "Polo dell'ospitalità",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g32",
+    "g35"
+   ],
+   "s": [
+    {
+     "a": "Via Otranto, 1",
+     "c": "Milano",
+     "raw": "Via Otranto, 1, MILANO",
+     "lat": 45.5144765,
+     "lon": 9.1308158,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"P. Frisi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 3900003",
+   "sito": "https://www.iisfrisi.edu.it",
+   "note": "Succursale \"polo per gli studi economici e sociali\"",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Gabbro, 6",
+     "c": "Milano",
+     "raw": "Via Gabbro, 6, MILANO",
+     "lat": 45.5150022,
+     "lon": 9.1598216,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"P. Verri\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 5511536",
+   "sito": "https://www.verri.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Lattanzio, 38",
+     "c": "Milano",
+     "raw": "Via Lattanzio, 38, MILANO",
+     "lat": 45.4516527,
+     "lon": 9.2161425,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"S. Allende\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 89501116",
+   "sito": "https://www.allendecustodi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g8",
+    "g15",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via U.Dini, 7",
+     "c": "Milano",
+     "raw": "Via U.Dini, 7, MILANO",
+     "lat": 45.4972882,
+     "lon": 9.1896404,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Schiaparelli Gramsci\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2022931",
+   "sito": "https://www.schiaparelligramsci.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Settembrini, 4",
+     "c": "Milano",
+     "raw": "Via Settembrini, 4, MILANO",
+     "lat": 45.480427,
+     "lon": 9.2048327,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Severi Correnti\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 3181121",
+   "sito": "https://www.severi-correnti.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g30",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Alcuino, 4",
+     "c": "Milano",
+     "raw": "Via Alcuino, 4, MILANO",
+     "lat": 45.4819774,
+     "lon": 9.1562505,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"V. Pareto\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 6453919",
+   "sito": "https://www.iispareto.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g10",
+    "g18",
+    "g19",
+    "g28",
+    "g29"
+   ],
+   "s": [
+    {
+     "a": "Via Litta Modignani, 55",
+     "c": "Milano",
+     "raw": "Via Litta Modignani, 55, MILANO",
+     "lat": 45.5227883,
+     "lon": 9.1608179,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS Frisi - Liceo Gastel",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "023575716",
+   "sito": "https://www.iisfrisi.edu.it/",
+   "note": "*corso in attesa di ratifica da parte di Regione Lombardia",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g7"
+   ],
+   "s": [
+    {
+     "a": "via Amoretti 61",
+     "c": "Milano",
+     "raw": "viaAmoretti 61, MILANO",
+     "lat": 45.520869,
+     "lon": 9.1422078,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IM \"G. Agnesi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 58100671",
+   "sito": "https://www.liceoagnesimilano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via Odoardo Tabacchi, 17/19",
+     "c": "Milano",
+     "raw": "Via Odoardo Tabacchi, 17/19, MILANO",
+     "lat": 45.4473847,
+     "lon": 9.1799195,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Bazzi, 18",
+     "c": "Milano",
+     "raw": "Via Bazzi, 18, MILANO",
+     "lat": 45.4436861,
+     "lon": 9.1876491,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IPSAR \"A. Vespucci\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 7610162",
+   "sito": "https://www.ipsarvespucci.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g32"
+   ],
+   "s": [
+    {
+     "a": "Via Valvassori Peroni, 8",
+     "c": "Milano",
+     "raw": "Via Valvassori Peroni, 8, MILANO",
+     "lat": 45.4811887,
+     "lon": 9.2363419,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Crescenzago, 110",
+     "c": "Milano",
+     "raw": "Via Crescenzago, 110, MILANO",
+     "lat": 45.4965497,
+     "lon": 9.2399599,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IPSC \"V. Kandinsky\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 8260979",
+   "sito": "https://www.iskandinsky.edu.it",
+   "note": "Settore produzioni tessili sartoriali",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33",
+    "g35",
+    "g36",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Baroni, 35",
+     "c": "Milano",
+     "raw": "Via Baroni, 35, MILANO",
+     "lat": 45.4099657,
+     "lon": 9.1722614,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IPSEOA \"C. Porta\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 38003686",
+   "sito": "https://www.carloportamilano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g9",
+    "g32"
+   ],
+   "s": [
+    {
+     "a": "Via Uruguay, 26/2",
+     "c": "Milano",
+     "raw": "Via Uruguay, 26/2, MILANO",
+     "lat": 45.4951916,
+     "lon": 9.1237795,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituti \"De Amicis\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 55195153",
+   "sito": "https://www.deamicismilano.com",
+   "note": "Percorso quadriennale economico multimediale",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g8",
+    "g11",
+    "g12",
+    "g15",
+    "g16",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Lamarmora, 34",
+     "c": "Milano",
+     "raw": "Via Lamarmora, 34, MILANO",
+     "lat": 45.4568876,
+     "lon": 9.2016383,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"C. Bazzi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 86453407",
+   "sito": "https://www.iticarlobazzi.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Cappuccio, 2",
+     "c": "Milano",
+     "raw": "Via Cappuccio, 2, MILANO",
+     "lat": 45.4617512,
+     "lon": 9.1799553,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Cloe Giani\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0289052273",
+   "sito": "https://istitutocloegiani.it/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via Tommaso Gulli, 39",
+     "c": "Milano",
+     "raw": "Via Tommaso Gulli, 39, MILANO",
+     "lat": 45.4652269,
+     "lon": 9.1332702,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Don Bosco Village School\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 39214135",
+   "sito": "https://www.donboscovillage.com",
+   "note": "Con potenziamento sportivo",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11",
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via Mac Mahon, 92",
+     "c": "Milano",
+     "raw": "Via Mach Mahon, 92, MILANO",
+     "lat": 45.4940207,
+     "lon": 9.1580911,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"G.B. Montini\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 5453975",
+   "sito": "https://liceo.istitutomontini.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Corso di Porta Romana, 105",
+     "c": "Milano",
+     "raw": "Corso di Porta Romana, 105, MILANO",
+     "lat": 45.4542445,
+     "lon": 9.1989755,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Gonzaga\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 6693141",
+   "sito": "https://www.gonzaga-milano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Vitruvio, 41",
+     "c": "Milano",
+     "raw": "Via Vitruvio, 41, MILANO",
+     "lat": 45.4825855,
+     "lon": 9.2060898,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Leonardo Da Vinci\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 780517",
+   "sito": "https://www.scuolemilano.it",
+   "note": "Con i seguenti orientamenti: sportivo, musicale, spettacolo, ambientale, comunicazioni tecnologiche",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g6",
+    "g17",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Cagnola, 12",
+     "c": "Milano",
+     "raw": "Via Cagnola, 12, MILANO",
+     "lat": 45.4776618,
+     "lon": 9.17279,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Leone XIII\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 4385021",
+   "sito": "https://www.leonexiii.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g15",
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via Leone XIII",
+     "c": "Milano",
+     "raw": "Via Leone XIII, MILANO",
+     "lat": 45.4749268,
+     "lon": 9.1631158,
+     "acc": "via"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Leopardi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 89409132",
+   "sito": "https://www.istitutoleopardi.it",
+   "note": "Percorso quadriennale",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via del carroccio 9",
+     "c": "Milano",
+     "raw": "Via del carroccio 9, MILANO",
+     "lat": 45.4597966,
+     "lon": 9.1732034,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Leopardi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 89409732",
+   "sito": "https://www.istitutoleopardi.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11",
+    "g15",
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via Arena, 13",
+     "c": "Milano",
+     "raw": "Via Arena, 13, MILANO",
+     "lat": 45.4558888,
+     "lon": 9.1793384,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Marcelline-Quadronno\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 58300750",
+   "sito": "https://www.marcellinequadronno.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via Quadronno, 15",
+     "c": "Milano",
+     "raw": "Via Quadronno, 15, MILANO",
+     "lat": 45.4543171,
+     "lon": 9.1925687,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Marcelline-Tommaseo\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 48006864",
+   "sito": "https://www.marcellinetommaseo.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Piazza Tommaseo, 1",
+     "c": "Milano",
+     "raw": "Piazza Tommaseo, 1, MILANO",
+     "lat": 45.4695766,
+     "lon": 9.1672365,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Maria Consolatrice\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 66981648",
+   "sito": "https://www.imcmilano.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g12",
+    "g15",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Melchiorre gioia, 51",
+     "c": "Milano",
+     "raw": "Via Melchiorre gioia, 51, MILANO",
+     "lat": 45.4876438,
+     "lon": 9.1984695,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Zaccaria\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 5456936",
+   "sito": "https://www.istitutozaccaria.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via della commenda, 5",
+     "c": "Milano",
+     "raw": "Via della commenda, 5, MILANO",
+     "lat": 45.4593045,
+     "lon": 9.1988391,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Odontotecnico \"Casati\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 2841946",
+   "sito": "https://www.odontotecnicicasati.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g30"
+   ],
+   "s": [
+    {
+     "a": "Via Montecuccoli, 44",
+     "c": "Milano",
+     "raw": "Via Montecuccoli, 44, MILANO",
+     "lat": 45.4595424,
+     "lon": 9.1355368,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Omnicomprensivo Musicale",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 88446647",
+   "sito": "https://www.ioms.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g14"
+   ],
+   "s": [
+    {
+     "a": "Via Corridoni, 34/36",
+     "c": "Milano",
+     "raw": "Via Corridoni, 34/36, MILANO",
+     "lat": 45.4635413,
+     "lon": 9.2039798,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto paritario \"Academy Internazionale\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 49523832",
+   "sito": "https://www.clerici.lombardia.it/2.0/Sedi/Academy-Internazionale",
+   "note": "Percorso quadriennale a curvatura sportiva",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g16",
+    "g35"
+   ],
+   "s": [
+    {
+     "a": "Via G.Terruggia, 8",
+     "c": "Milano",
+     "raw": "Via G.Terruggia, 8, MILANO",
+     "lat": 45.5179802,
+     "lon": 9.1894216,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto paritario \"Labor\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 39311476/02 6071981",
+   "sito": "https://www.istitutolabor.it",
+   "note": "Con potenziamento sportivo",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g9",
+    "g11",
+    "g16",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Degli artigianelli, 10",
+     "c": "Milano",
+     "raw": "Via Degli artigianelli, 10, MILANO",
+     "lat": 45.5003827,
+     "lon": 9.1868557,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Pavoniano \"Artigianelli\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 69008178",
+   "sito": "https://www.istitutoart.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g23"
+   ],
+   "s": [
+    {
+     "a": "Via Crespi, 30",
+     "c": "Milano",
+     "raw": "Via Crespi, 30, MILANO",
+     "lat": 45.5016848,
+     "lon": 9.1854876,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Salesiano \"Maria Ausiliatrice\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 7015121",
+   "sito": "https://www.scuolabonvesin.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g10",
+    "g17",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Bonvesin De la riva, 12",
+     "c": "Milano",
+     "raw": "Via Bonvesin De la riva, 12, MILANO",
+     "lat": 45.4633573,
+     "lon": 9.2120555,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Salesiano \"S. Ambrogio\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 676271",
+   "sito": "https://www.salesianimilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via N.Copernico, 9",
+     "c": "Milano",
+     "raw": "Via N.Copernico, 9, MILANO",
+     "lat": 45.4881184,
+     "lon": 9.2012132,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Salesiano S. Ambrogio",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 676271",
+   "sito": "https://www.salesianimilano.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g23",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via Tonale, 19",
+     "c": "Milano",
+     "raw": "Via Tonale, 19, MILANO",
+     "lat": 45.4892559,
+     "lon": 9.2015404,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Salesiano S. Ambrogio",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 676271",
+   "sito": "https://www.salesianimilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via Copernico, 9",
+     "c": "Milano",
+     "raw": "Via Copernico, 9, MILANO",
+     "lat": 45.4881184,
+     "lon": 9.2012132,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Sant'Angela Merici Suore Orsoline di San Carlo",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0248951441",
+   "sito": "https://orsolinemerici.it/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10"
+   ],
+   "s": [
+    {
+     "a": "Via Vespri Siciliani, 55",
+     "c": "Milano",
+     "raw": "Via Vespri Siciliani, 55, MILANO",
+     "lat": 45.4517432,
+     "lon": 9.1464401,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Tecnico Carlo Acutis",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0283595504",
+   "sito": "https://itcarloacutis.it/",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g23",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Carlo Amoretti 78",
+     "c": "Milano",
+     "raw": "Via Carlo Amoretti 78, MILANO",
+     "lat": 45.5189459,
+     "lon": 9.1475225,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITAS \"G. Natta\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2593956",
+   "sito": "https://www.iis-natta-milano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g20"
+   ],
+   "s": [
+    {
+     "a": "Via Don Calabria, 16",
+     "c": "Milano",
+     "raw": "Via Don Calabria, 16, MILANO",
+     "lat": 45.4985293,
+     "lon": 9.2408941,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"E. Conti\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 405008",
+   "sito": "https://www.ettoreconti.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g25",
+    "g27"
+   ],
+   "s": [
+    {
+     "a": "Via de Vincenti, 11",
+     "c": "Milano",
+     "raw": "Via de Vincenti, 11, MILANO",
+     "lat": 45.4770811,
+     "lon": 9.1409952,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Betti, 56",
+     "c": "Milano",
+     "raw": "Via Betti, 56, MILANO",
+     "lat": 45.4930906,
+     "lon": 9.1099477,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"E. Molinari\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2820786",
+   "sito": "https://www.istitutomolinari.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g20",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Crescenzago, 110",
+     "c": "Milano",
+     "raw": "Via Crescenzago, 110, MILANO",
+     "lat": 45.4965497,
+     "lon": 9.2399599,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"G. Feltrinelli\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 8376741",
+   "sito": "https://www.itisfeltrinelli.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g20",
+    "g22",
+    "g24",
+    "g25",
+    "g27"
+   ],
+   "s": [
+    {
+     "a": "Piazza Tito Lucrezio Caro, 8",
+     "c": "Milano",
+     "raw": "Piazza Tito Lucrezio Caro, 8, MILANO",
+     "lat": 45.4486139,
+     "lon": 9.1833344,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITSOS \"A. Steiner\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 5391391",
+   "sito": "https://www.itsosmilano.edu.it",
+   "note": "Sperimentazioni: cinema e televisione; fotografia e grafica",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g3",
+    "g23"
+   ],
+   "s": [
+    {
+     "a": "Via San Dionigi, 36",
+     "c": "Milano",
+     "raw": "Via San Dionigi, 36, MILANO",
+     "lat": 45.4280446,
+     "lon": 9.2282581,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITT \"P. Pasolini\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2104001",
+   "sito": "https://www.itspasolini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Bistolfi, 15",
+     "c": "Milano",
+     "raw": "Via Bistolfi, 15, MILANO",
+     "lat": 45.4738312,
+     "lon": 9.2446615,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "LA \"Caravaggio\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2846948",
+   "sito": "https://www.liceocaravaggio.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g6"
+   ],
+   "s": [
+    {
+     "a": "Via Prinetti, 47",
+     "c": "Milano",
+     "raw": "Via Prinetti, 47, MILANO",
+     "lat": 45.4992062,
+     "lon": 9.2330582,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "LA \"Di Brera\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 70102093",
+   "sito": "https://www.liceoartisticodibrera.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g7"
+   ],
+   "s": [
+    {
+     "a": "Via Hajech, 27",
+     "c": "Milano",
+     "raw": "Via Hajech, 27, MILANO",
+     "lat": 45.463166,
+     "lon": 9.2184483,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Papa Gregorio XIV, 1",
+     "c": "Milano",
+     "raw": "Via Papa Gregorio XIV, 1, MILANO",
+     "lat": 45.4591315,
+     "lon": 9.1828124,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "LA \"U. Boccioni\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 48019249",
+   "sito": "https://www.liceoartisticoboccioni.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g6"
+   ],
+   "s": [
+    {
+     "a": "Piazzale Arduino, 4",
+     "c": "Milano",
+     "raw": "Piazzale Arduino, 4, MILANO",
+     "lat": 45.4778875,
+     "lon": 9.1508367,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Licei \"Faes Città Studi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 266867003",
+   "sito": "https://www.faesmilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g10",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Zanoia, 1",
+     "c": "Milano",
+     "raw": "Via Zanoia, 1, MILANO",
+     "lat": 45.4811096,
+     "lon": 9.2297025,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"A. Einstein\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 5413161",
+   "sito": "https://www.liceoeinsteinmilano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via A.Einstein, 3",
+     "c": "Milano",
+     "raw": "Via A.Einstein, 3, MILANO",
+     "lat": 45.4503331,
+     "lon": 9.216376,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"A. Manzoni\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 86451708",
+   "sito": "https://www.liceoclassicomanzoni.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Orazio, 3",
+     "c": "Milano",
+     "raw": "Via Orazio, 3, MILANO",
+     "lat": 45.45979,
+     "lon": 9.1777372,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"A. Volta\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 29406185",
+   "sito": "https://www.liceovolta.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via B.Marcello, 7",
+     "c": "Milano",
+     "raw": "Via B.Marcello, 7, MILANO",
+     "lat": 45.4783097,
+     "lon": 9.166329,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"C. Beccaria\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 344815",
+   "sito": "https://www.liceobeccaria.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via C.Linneo, 5",
+     "c": "Milano",
+     "raw": "Via C.Linneo, 5, MILANO",
+     "lat": 45.4762356,
+     "lon": 9.2127408,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"C. Tenca\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 6551606",
+   "sito": "https://www.liceotenca.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g12",
+    "g14"
+   ],
+   "s": [
+    {
+     "a": "Bastioni di Porta Volta, 16",
+     "c": "Milano",
+     "raw": "Bastioni di Porta Volta, 16, MILANO",
+     "lat": 45.4792788,
+     "lon": 9.1814335,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Carrel Alexis\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 4151517",
+   "sito": "https://www.fondazionegrossman.org",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Inganni, 12",
+     "c": "Milano",
+     "raw": "Via Inganni, 12, MILANO",
+     "lat": 45.4476922,
+     "lon": 9.1277237,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Donatelli Pascal\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 70126738",
+   "sito": "https://www.liceodonatellipascal.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Viale Campania, 6",
+     "c": "Milano",
+     "raw": "Viale Campania, 6, MILANO",
+     "lat": 45.462842,
+     "lon": 9.2243691,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Corti, 16",
+     "c": "Milano",
+     "raw": "Via Corti, 16, MILANO",
+     "lat": 45.4806493,
+     "lon": 9.232301,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"E. Fermi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 3315414/38",
+   "sito": "https://www.liceofermimilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Alfieri, 12",
+     "c": "Milano",
+     "raw": "Via Alfieri, 12, MILANO",
+     "lat": 45.4789294,
+     "lon": 9.1760087,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"E. Fermi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 3315414/38",
+   "sito": "https://www.liceofermimilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via V.Alfieri, 12",
+     "c": "Milano",
+     "raw": "Via V.Alfieri, 12, MILANO",
+     "lat": 45.4789294,
+     "lon": 9.1760087,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"E. Vittorini\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 474448",
+   "sito": "https://www.eliovittorini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Donati, 5/7",
+     "c": "Milano",
+     "raw": "Via Donati, 5/7, MILANO",
+     "lat": 45.4543655,
+     "lon": 9.1448494,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Fondazione Sacro Cuore\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 210103500",
+   "sito": "https://www.sacrocuore.org",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g8",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Rombon, 78",
+     "c": "Milano",
+     "raw": "Via Rombon, 78, MILANO",
+     "lat": 45.4868523,
+     "lon": 9.2528312,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Berchet\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 5450709",
+   "sito": "https://www.liceoberchet.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via della commenda, 26",
+     "c": "Milano",
+     "raw": "Via della commenda, 26, MILANO",
+     "lat": 45.4556666,
+     "lon": 9.1993217,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Carducci\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 2847232",
+   "sito": "https://www.liceoclassicocarducci.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Beroldo, 9",
+     "c": "Milano",
+     "raw": "Via Beroldo, 9, MILANO",
+     "lat": 45.4878845,
+     "lon": 9.2142731,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Demostene, 40",
+     "c": "Milano",
+     "raw": "Via Demostene, 40, MILANO",
+     "lat": 45.5073001,
+     "lon": 9.2258966,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Marconi\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 48302354",
+   "sito": "https://www.marconionline.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via dei narcisi, 5",
+     "c": "Milano",
+     "raw": "Via dei narcisi, 5, MILANO",
+     "lat": 45.4509988,
+     "lon": 9.127998,
+     "acc": "ok"
+    },
+    {
+     "a": "Via U.Pisa, 2/5",
+     "c": "Milano",
+     "raw": "Via U.Pisa, 2/5, MILANO",
+     "lat": 45.4531481,
+     "lon": 9.1204431,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Parini\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 6551278",
+   "sito": "https://www.liceoparini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Goito, 4",
+     "c": "Milano",
+     "raw": "Via Goito, 4, MILANO",
+     "lat": 45.4742926,
+     "lon": 9.1888173,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Giovanni Gastel\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 91975659",
+   "sito": "https://www.iisfrisi.edu.it",
+   "note": "Succursale del I.I.S \"P.Frisi\"",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via Amoretti, 63",
+     "c": "Milano",
+     "raw": "Via Amoretti, 63, MILANO",
+     "lat": 45.5208817,
+     "lon": 9.1423016,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Giovanni XXIII\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 58314718",
+   "sito": "https://www.liceogiovannixxiii.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3"
+   ],
+   "s": [
+    {
+     "a": "Corso di Porta Vigentina, 14",
+     "c": "Milano",
+     "raw": "Corso di Porta Vigentina, 14, MILANO",
+     "lat": 45.4550304,
+     "lon": 9.1956512,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Leonardo Da Vinci\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 55187728",
+   "sito": "https://www.liceoleonardomi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Respighi, 5",
+     "c": "Milano",
+     "raw": "Via Respighi, 5, MILANO",
+     "lat": 45.4631947,
+     "lon": 9.2026692,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"P. Bottoni\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 39211418",
+   "sito": "https://www.liceobottoni.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Mac Mahon, 96",
+     "c": "Milano",
+     "raw": "Via Mac Mahon, 96, MILANO",
+     "lat": 45.4963486,
+     "lon": 9.1548788,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Preziosissimo Sangue\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 2593344",
+   "sito": "https://www.liceoscienzeumane.preziosine.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10"
+   ],
+   "s": [
+    {
+     "a": "Via Padre Riccardi, 5",
+     "c": "Milano",
+     "raw": "Via Padre Riccardi, 5, MILANO",
+     "lat": 45.5015044,
+     "lon": 9.2390701,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"San Raffaele\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 84243968",
+   "sito": "https://www.liceosanraffaele.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Olgettina, 46",
+     "c": "Milano",
+     "raw": "Via Olgettina, 46, MILANO",
+     "lat": 45.5057611,
+     "lon": 9.2701945,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Tito Livio\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 875043",
+   "sito": "https://www.titolivio.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Circo, 4",
+     "c": "Milano",
+     "raw": "Via Circo, 4, MILANO",
+     "lat": 45.4616658,
+     "lon": 9.1807088,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Tito Livio\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 36741237",
+   "sito": "https://www.titolivio.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g13"
+   ],
+   "s": [
+    {
+     "a": "Via Gozzadini, 1",
+     "c": "Milano",
+     "raw": "Via Gozzadini, 1, MILANO",
+     "lat": 45.4739229,
+     "lon": 9.1281145,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Virgilio\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 7382515",
+   "sito": "https://www.liceovirgiliomilano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g10",
+    "g11",
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Piazza Ascoli, 2",
+     "c": "Milano",
+     "raw": "Piazza Ascoli, 2, MILANO",
+     "lat": 45.4729158,
+     "lon": 9.2175227,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Pisacane, 11",
+     "c": "Milano",
+     "raw": "Via Pisacane, 11, MILANO",
+     "lat": 45.4741658,
+     "lon": 9.2110651,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Vittorio Veneto\"",
+   "t": "statale",
+   "c": "Milano",
+   "tel": "02 405007",
+   "sito": "https://www.liceovittorioveneto.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via de Vincenti, 7",
+     "c": "Milano",
+     "raw": "Via de Vincenti, 7, MILANO",
+     "lat": 45.4774419,
+     "lon": 9.1415446,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo Artistico \"Liceo Internazionale Società Umanitaria\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0257968322",
+   "sito": "https://www.umanitaria.it/liceo-internazionale",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g5",
+    "g6",
+    "g7"
+   ],
+   "s": [
+    {
+     "a": "Via Daverio, 7",
+     "c": "Milano",
+     "raw": "Via Daverio, 7, MILANO",
+     "lat": 45.4591729,
+     "lon": 9.2008273,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo Artistico \"Orsoline\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 72010563",
+   "sito": "https://www.artisticorsoline.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3"
+   ],
+   "s": [
+    {
+     "a": "Via Lanzone, 53",
+     "c": "Milano",
+     "raw": "Via Lanzone, 53, MILANO",
+     "lat": 45.4615099,
+     "lon": 9.1745871,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo Artistico Giovanni XXIII",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "0258324465",
+   "sito": "https://www.liceogiovannixxiii.it/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g4"
+   ],
+   "s": [
+    {
+     "a": "Corso di Porta Vigentina, 14",
+     "c": "Milano",
+     "raw": "Corso di Porta Vigentina, 14, MILANO",
+     "lat": 45.4550304,
+     "lon": 9.1956512,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo delle Scienze Umane opzione economico- sociale Giovanni XXIII",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "3939526077",
+   "sito": "https://www.liceogiovannixxiii.it/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via della Commenda 37",
+     "c": "Milano",
+     "raw": "Via della Commenda n. 37, MILANO",
+     "lat": 45.4556828,
+     "lon": 9.1994697,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo Scientifico \"Orsoline\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 72010563",
+   "sito": "https://www.scientificorsoline.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Lanzone, 53",
+     "c": "Milano",
+     "raw": "Via Lanzone, 53, MILANO",
+     "lat": 45.4615099,
+     "lon": 9.1745871,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Lindbergh Flying School",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 55011914",
+   "sito": "https://www.lindberghfs.com",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g27"
+   ],
+   "s": [
+    {
+     "a": "Via Curtatone, 12",
+     "c": "Milano",
+     "raw": "Via Curtatone, 12, MILANO",
+     "lat": 45.4560394,
+     "lon": 9.2023952,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Preziosine",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 2593344",
+   "sito": "https://www.clerici.lombardia.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Riccardi, 5",
+     "c": "Milano",
+     "raw": "Via Riccardi, 5, MILANO",
+     "lat": 45.5015044,
+     "lon": 9.2390701,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Scuola \"Comunità Ebraica di Milano\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 483110246",
+   "sito": "https://www.scuolaebraicamilano.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g17",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via S. Mayer, 4/6",
+     "c": "Milano",
+     "raw": "Via S. Mayer, 4/6, MILANO",
+     "lat": 45.4557827,
+     "lon": 9.1377349,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Scuola \"Europa\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 76007804",
+   "sito": "https://www.scuolaeuropa.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Viale Majno, 39",
+     "c": "Milano",
+     "raw": "Viale Majno, 39, MILANO",
+     "lat": 45.4722606,
+     "lon": 9.2051333,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Scuola \"R. Steiner\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 36538510",
+   "sito": "https://www.scuolasteinermilano.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Clericetti, 45",
+     "c": "Milano",
+     "raw": "Via Clericetti, 45, MILANO",
+     "lat": 45.4795943,
+     "lon": 9.2351702,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Scuola \"Regina Mundi\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 533208/09",
+   "sito": "https://scuolareginamundi.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Boncompagni, 18",
+     "c": "Milano",
+     "raw": "Via Boncompagni, 18, MILANO",
+     "lat": 45.4400971,
+     "lon": 9.2269429,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Scuola paritaria \"S.Freud\"",
+   "t": "paritaria",
+   "c": "Milano",
+   "tel": "02 29409829",
+   "sito": "https://www.istitutofreud.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g15",
+    "g24",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Viale Fulvio Testi, 7",
+     "c": "Milano",
+     "raw": "Viale Fulvio Testi, 7, MILANO",
+     "lat": 45.5030639,
+     "lon": 9.1983187,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Alessandrini\"",
+   "t": "statale",
+   "c": "Abbiategrasso",
+   "tel": "02 9466306/7",
+   "sito": "https://www.iisalessandrini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via Einaudi, 3",
+     "c": "Abbiategrasso",
+     "raw": "Via Einaudi, 3, ABBIATEGRASSO",
+     "lat": 45.3944654,
+     "lon": 8.9099926,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Alessandrini\"",
+   "t": "statale",
+   "c": "Abbiategrasso",
+   "tel": "02 94960197",
+   "sito": "https://www.iisalessandrini.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Vivaldi, 8",
+     "c": "Abbiategrasso",
+     "raw": "Via Vivaldi, 8, ABBIATEGRASSO",
+     "lat": 45.4000578,
+     "lon": 8.9251357,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E.Alessandrini\"",
+   "t": "statale",
+   "c": "Abbiategrasso",
+   "tel": "02 9466306/7",
+   "sito": "http://www.iisalessandrini.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g22"
+   ],
+   "s": [
+    {
+     "a": "Via L.Einaudi, 3",
+     "c": "Abbiategrasso",
+     "raw": "Via L.Einaudi, 3, ABBIATEGRASSO",
+     "lat": 45.3944654,
+     "lon": 8.9099926,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"V. Bachelet\"",
+   "t": "statale",
+   "c": "Abbiategrasso",
+   "tel": "029464236",
+   "sito": "https://iisbachelet.edu.it/",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g12",
+    "g15",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via Stignani, 63/65",
+     "c": "Abbiategrasso",
+     "raw": "Via Stignani, 63/65, ABBIATEGRASSO",
+     "lat": 45.3916588,
+     "lon": 8.9070408,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Omnicomprensivo di Arconate e Buscate",
+   "t": "statale",
+   "c": "Arconate",
+   "tel": "0331 461318",
+   "sito": "https://www.omnicomprensivoeuropeo.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Piazza San Carlo, 3",
+     "c": "Arconate",
+     "raw": "Piazza San Carlo, 3, ARCONATE",
+     "lat": 45.541469,
+     "lon": 8.8518938,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"B. Russell\"",
+   "t": "statale",
+   "c": "Arese",
+   "tel": "02 93581514",
+   "sito": "https://www.russell-fontana.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g6"
+   ],
+   "s": [
+    {
+     "a": "Via Allende, 2",
+     "c": "Arese",
+     "raw": "Via Allende, 2, ARESE",
+     "lat": 45.5540011,
+     "lon": 9.0628899,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Falcone Borsellino\"",
+   "t": "statale",
+   "c": "Arese",
+   "tel": "02 93583161",
+   "sito": "https://www.liceofalcbors.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via G.Matteotti, 29",
+     "c": "Arese",
+     "raw": "Via G.Matteotti, 29, ARESE",
+     "lat": 45.5578473,
+     "lon": 9.0757232,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITC \"Erasmo da Rotterdam\"",
+   "t": "statale",
+   "c": "Bollate",
+   "tel": "02 3506460",
+   "sito": "https://www.itcserasmo.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g6",
+    "g21",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Varalli, 24",
+     "c": "Bollate",
+     "raw": "Via Varalli, 24, BOLLATE",
+     "lat": 45.5393989,
+     "lon": 9.1260756,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITCS \"Erasmo da Rotterdam\"",
+   "t": "statale",
+   "c": "Bollate",
+   "tel": "02 23506460",
+   "sito": "https://www.itcerasmo.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via Varalli, 24",
+     "c": "Bollate",
+     "raw": "Via Varalli, 24, BOLLATE",
+     "lat": 45.5393989,
+     "lon": 9.1260756,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITCS \"Primo Levi\"",
+   "t": "statale",
+   "c": "Bollate",
+   "tel": "02 3506465",
+   "sito": "https://www.primolevibollate.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g16",
+    "g17",
+    "g19",
+    "g20"
+   ],
+   "s": [
+    {
+     "a": "Via Varalli, 20",
+     "c": "Bollate",
+     "raw": "Via Varalli, 20, BOLLATE",
+     "lat": 45.5388504,
+     "lon": 9.1229445,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Bruno\"",
+   "t": "statale",
+   "c": "Cassano D'Adda",
+   "tel": "0363 65822",
+   "sito": "https://www.liceo-melzocassano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Papa Giovanni XXIII, 223",
+     "c": "Cassano D'Adda",
+     "raw": "Via Papa Giovanni XXIII, 223, CASSANO D'ADDA",
+     "lat": 45.5412006,
+     "lon": 9.520253,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Torno\"",
+   "t": "statale",
+   "c": "Castano Primo",
+   "tel": "0331 881500",
+   "sito": "https://www.istitutotorno.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g15",
+    "g19",
+    "g20",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Piazzale Don Milani, 1",
+     "c": "Castano Primo",
+     "raw": "Piazzale Don Milani, 1, CASTANO PRIMO",
+     "lat": 45.5474791,
+     "lon": 8.7884539,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Argentia-Majorana\"",
+   "t": "statale",
+   "c": "Cernusco Sul Naviglio",
+   "tel": "02 92140104",
+   "sito": "https://www.argentiamajorana.edu.it",
+   "note": "Settore: produzioni tessili e sistema moda",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Volta, 11",
+     "c": "Cernusco Sul Naviglio",
+     "raw": "Via Volta, 11, CERNUSCO SUL NAVIGLIO",
+     "lat": 45.5205366,
+     "lon": 9.331162,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITSOS \"M. Curie\"",
+   "t": "statale",
+   "c": "Cernusco Sul Naviglio",
+   "tel": "02 9240552",
+   "sito": "https://www.itsos-mariecurie.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g8",
+    "g11",
+    "g12",
+    "g16",
+    "g19",
+    "g20",
+    "g22",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Masaccio, 4",
+     "c": "Cernusco Sul Naviglio",
+     "raw": "Via Masaccio, 4, CERNUSCO SUL NAVIGLIO",
+     "lat": 45.5229125,
+     "lon": 9.3137022,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Montale\"",
+   "t": "statale",
+   "c": "Cinisello Balsamo",
+   "tel": "02 6122340",
+   "sito": "https://www.iismontale.edu.it",
+   "note": "Settore: produzioni tessili e sistema moda",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g19",
+    "g28",
+    "g33",
+    "g35"
+   ],
+   "s": [
+    {
+     "a": "Via M.Gorki, 100",
+     "c": "Cinisello Balsamo",
+     "raw": "Via M.Gorki, 100, CINISELLO BALSAMO",
+     "lat": 45.5501696,
+     "lon": 9.2174634,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IPSCT \"E. Falck\"",
+   "t": "statale",
+   "c": "Cinisello Balsamo",
+   "tel": "02 6181235",
+   "sito": "https://www.ipfalck.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g36",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Balilla, 50",
+     "c": "Sesto San Giovanni",
+     "raw": "Via Balilla, 50, SESTO SAN GIOVANNI",
+     "lat": 45.5460447,
+     "lon": 9.234717,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Di Vittorio, 1",
+     "c": "Cinisello Balsamo",
+     "raw": "Via Di Vittorio, 1 (succursale), CINISELLO BALSAMO",
+     "lat": 45.5537743,
+     "lon": 9.2070623,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"Cartesio\"",
+   "t": "statale",
+   "c": "Cinisello Balsamo",
+   "tel": "02 6121768",
+   "sito": "https://www.itiscartesio.edu.it",
+   "note": "Anche percorso quadriennale",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g20",
+    "g22",
+    "g23",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Gorki, 100",
+     "c": "Cinisello Balsamo",
+     "raw": "Via Gorki, 100, CINISELLO BALSAMO",
+     "lat": 45.5501696,
+     "lon": 9.2174634,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Casiraghi\"",
+   "t": "statale",
+   "c": "Cinisello Balsamo",
+   "tel": "02 6173001",
+   "sito": "https://www.liceocasiraghi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via M. Gorki, 106",
+     "c": "Cinisello Balsamo",
+     "raw": "Via M. Gorki, 106, CINISELLO BALSAMO",
+     "lat": 45.5482237,
+     "lon": 9.2178283,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Casiraghi\"",
+   "t": "statale",
+   "c": "Cinisello Balsamo",
+   "tel": "02 6173001",
+   "sito": "https://www.liceocasiraghi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via M.Gorki, 100",
+     "c": "Cinisello Balsamo",
+     "raw": "Via M.Gorki, 100, CINISELLO BALSAMO",
+     "lat": 45.5501696,
+     "lon": 9.2174634,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "BDC School",
+   "t": "paritaria",
+   "c": "Cologno Monzese",
+   "tel": "02 35986613",
+   "sito": "https://www.bdcschool.eu/",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Alessandro Volta, 16",
+     "c": "Cologno Monzese",
+     "raw": "Via Alessandro Volta, 16, COLOGNO MONZESE",
+     "lat": 45.5248579,
+     "lon": 9.285203,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Leonardo Da Vinci\"",
+   "t": "statale",
+   "c": "Cologno Monzese",
+   "tel": "02 2516501",
+   "sito": "https://www.istitutoleonardodavinci.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g11",
+    "g15",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Leonardo da Vinci, 1",
+     "c": "Cologno Monzese",
+     "raw": "Via Leonardo da Vinci, 1, COLOGNO MONZESE",
+     "lat": 45.5359588,
+     "lon": 9.2950264,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IPSCT \"E. Falck\"",
+   "t": "statale",
+   "c": "Cologno Monzese",
+   "tel": "02 25410494",
+   "sito": "https://www.ipfalck.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Leonardo da Vinci, 1",
+     "c": "Cologno Monzese",
+     "raw": "Via Leonardo da Vinci, 1, COLOGNO MONZESE",
+     "lat": 45.5359588,
+     "lon": 9.2950264,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Alessandrini\"",
+   "t": "statale",
+   "c": "Corbetta",
+   "tel": "02 9779946",
+   "sito": "https://www.alessandrinimainardi.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g30",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Roma, 1",
+     "c": "Corbetta",
+     "raw": "Via Roma, 1, CORBETTA",
+     "lat": 45.4684678,
+     "lon": 8.9185348,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"P. Frisi\"",
+   "t": "statale",
+   "c": "Cornaredo",
+   "tel": "02 32329753",
+   "sito": "https://www.iisfrisi.edu.it",
+   "note": "Succursale Olmo di Cornaredo",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g32"
+   ],
+   "s": [
+    {
+     "a": "Via G.Matteotti, 7",
+     "c": "Cornaredo",
+     "raw": "Via G.Matteotti, 7, CORNAREDO",
+     "lat": 45.4941017,
+     "lon": 9.0239367,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Falcone Righi\"",
+   "t": "statale",
+   "c": "Corsico",
+   "tel": "02 4585362",
+   "sito": "https://www.iisfalcone-righi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g19",
+    "g22",
+    "g23",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Viale Italia, 22/24",
+     "c": "Corsico",
+     "raw": "Viale Italia, 22/24, CORSICO",
+     "lat": 45.4358885,
+     "lon": 9.0982787,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G.B. Vico\"",
+   "t": "statale",
+   "c": "Corsico",
+   "tel": "02 4580920",
+   "sito": "https://www.liceovico.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10"
+   ],
+   "s": [
+    {
+     "a": "Via Italia, 26",
+     "c": "Corsico",
+     "raw": "Via Italia, 26, CORSICO",
+     "lat": 45.4376484,
+     "lon": 9.1030129,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G.B. Vico\"",
+   "t": "statale",
+   "c": "Corsico",
+   "tel": "02 4580920",
+   "sito": "https://www.liceovico.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Viale Italia, 26",
+     "c": "Corsico",
+     "raw": "Viale Italia, 26, CORSICO",
+     "lat": 45.4377288,
+     "lon": 9.0967991,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Spinelli\"",
+   "t": "statale",
+   "c": "Cusano Milanino",
+   "tel": "02 6133695",
+   "sito": "https://www.iisaltierospinelli.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g17",
+    "g24",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Mazzini, 30",
+     "c": "Cusano Milanino",
+     "raw": "Via Mazzini, 30, CUSANO MILANINO",
+     "lat": 45.5525509,
+     "lon": 9.1797249,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"B. Russell\"",
+   "t": "statale",
+   "c": "Garbagnate Milanese",
+   "tel": "02 9953147",
+   "sito": "https://www.russell-fontana.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via San Carlo, 19",
+     "c": "Garbagnate Milanese",
+     "raw": "Via San Carlo, 19, GARBAGNATE MILANESE",
+     "lat": 45.5741216,
+     "lon": 9.0829454,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Argentia-Majorana\"",
+   "t": "statale",
+   "c": "Gorgonzola",
+   "tel": "02 9513518",
+   "sito": "https://www.argentiamajorana.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g18",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Adda, 2",
+     "c": "Gorgonzola",
+     "raw": "Via Adda, 2, GORGONZOLA",
+     "lat": 45.5387831,
+     "lon": 9.4068436,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Maria Immacolata\"",
+   "t": "paritaria",
+   "c": "Gorgonzola",
+   "tel": "02 95300205",
+   "sito": "https://www.imigorgonzola.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Diaz, 1",
+     "c": "Gorgonzola",
+     "raw": "Via Diaz, 1, GORGONZOLA",
+     "lat": 45.532742,
+     "lon": 9.4102144,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"G. Marconi\"",
+   "t": "statale",
+   "c": "Gorgonzola",
+   "tel": "02 9513516",
+   "sito": "https://www.marconigorgonzola.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Adda, 10",
+     "c": "Gorgonzola",
+     "raw": "Via Adda, 10, GORGONZOLA",
+     "lat": 45.5385005,
+     "lon": 9.4019885,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Sant'Agostino\"",
+   "t": "paritaria",
+   "c": "Gorgonzola",
+   "tel": "02 9515645",
+   "sito": "https://lisagorgonzola.com",
+   "note": "Con progetto sportivo",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Via G.Matteotti, 30",
+     "c": "Gorgonzola",
+     "raw": "Via G.Matteotti, 30, GORGONZOLA",
+     "lat": 45.5327792,
+     "lon": 9.4032916,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"di Inveruno\"",
+   "t": "statale",
+   "c": "Inveruno",
+   "tel": "02 97288182",
+   "sito": "https://www.iisinveruno.edu.it",
+   "note": "Settori: industria, meccanica e produzioni tessili sartoriali",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g23",
+    "g28",
+    "g33",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Marcora, 109",
+     "c": "Inveruno",
+     "raw": "Via Marcora, 109, INVERUNO",
+     "lat": 45.5137964,
+     "lon": 8.8533708,
+     "acc": "via"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"di Inveruno\"",
+   "t": "statale",
+   "c": "Inveruno",
+   "tel": "02 9787234",
+   "sito": "https://www.iisinveruno.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Buonarroti, 6",
+     "c": "Inveruno",
+     "raw": "Via Buonarroti, 6, INVERUNO",
+     "lat": 45.5189348,
+     "lon": 8.848633,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"M. Bellisario\"",
+   "t": "statale",
+   "c": "Inzago",
+   "tel": "02 9549502",
+   "sito": "https://www.iisbellisario.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Strada padana superiore, 24",
+     "c": "Inzago",
+     "raw": "Strada padana superiore, 24, INZAGO",
+     "lat": 45.5404311,
+     "lon": 9.482181,
+     "acc": "comune"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Bernocchi\"",
+   "t": "statale",
+   "c": "Legnano",
+   "tel": "0331 541393/4",
+   "sito": "https://www.isisbernocchi.edu.it",
+   "note": "Anche percorso quadriennale",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g24",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via Diaz, 2",
+     "c": "Legnano",
+     "raw": "Via Diaz, 2, LEGNANO",
+     "lat": 45.5946858,
+     "lon": 8.9234393,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Calini, 5",
+     "c": "Legnano",
+     "raw": "Via Calini, 5, LEGNANO",
+     "lat": 45.5947381,
+     "lon": 8.9253196,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Bernocchi\"",
+   "t": "statale",
+   "c": "Legnano",
+   "tel": "0331 596170",
+   "sito": "https://www.isisbernocchi.edu.it",
+   "note": "Settori: produzioni tessili sartoriali",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Bernocchi, 6",
+     "c": "Legnano",
+     "raw": "Via Bernocchi, 6, LEGNANO",
+     "lat": 45.5951317,
+     "lon": 8.9244176,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"C. Dell'Acqua\"",
+   "t": "statale",
+   "c": "Legnano",
+   "tel": "0331 446811",
+   "sito": "https://www.isdellacqua.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g2",
+    "g6",
+    "g19",
+    "g21",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Bernocchi, 1",
+     "c": "Legnano",
+     "raw": "Via Bernocchi, 1, LEGNANO",
+     "lat": 45.5951317,
+     "lon": 8.9244176,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Calini, 5",
+     "c": "Legnano",
+     "raw": "Via Calini, 5, LEGNANO",
+     "lat": 45.5947381,
+     "lon": 8.9253196,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto \"Tirinnanzi\"",
+   "t": "paritaria",
+   "c": "Legnano",
+   "tel": "0331 182520",
+   "sito": "https://www.istitutotirinnanzi.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Abruzzi, 21",
+     "c": "Legnano",
+     "raw": "Via Abruzzi, 21, LEGNANO",
+     "lat": 45.5856231,
+     "lon": 8.8997304,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Istituto Canossiano \"B. Melzi\"",
+   "t": "paritaria",
+   "c": "Legnano",
+   "tel": "0331 440049",
+   "sito": "https://www.istitutobarbaramelzi.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "professionale"
+   ],
+   "i": [
+    "g10",
+    "g11",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Corso Sempione, 102",
+     "c": "Legnano",
+     "raw": "Corso Sempione, 102, LEGNANO",
+     "lat": 45.595603,
+     "lon": 8.9259723,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Galilei\"",
+   "t": "statale",
+   "c": "Legnano",
+   "tel": "0331 549398",
+   "sito": "https://www.liceogalileilegnano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g12",
+    "g15",
+    "g16"
+   ],
+   "s": [
+    {
+     "a": "Viale Gorizia, 16",
+     "c": "Legnano",
+     "raw": "Viale Gorizia, 16, LEGNANO",
+     "lat": 45.5880915,
+     "lon": 8.922382,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"L. Einaudi\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "02 97298766",
+   "sito": "https://www.einaudimagenta.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Mazenta, 51",
+     "c": "Magenta",
+     "raw": "Via Mazenta, 51, MAGENTA",
+     "lat": 45.4665905,
+     "lon": 8.8793855,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"L. Einaudi\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "0297298766",
+   "sito": "https://einaudimagenta.edu.it/",
+   "note": "Settore produzioni tessili sartoriali",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33",
+    "g34",
+    "g36"
+   ],
+   "s": [
+    {
+     "a": "Via Novara, 113",
+     "c": "Magenta",
+     "raw": "Via Novara, 113, MAGENTA",
+     "lat": 45.4637304,
+     "lon": 8.868844,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Bramante\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "02 97290563",
+   "sito": "https://www.liceobramante.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Trieste, 70",
+     "c": "Magenta",
+     "raw": "Via Trieste, 70, MAGENTA",
+     "lat": 45.4655044,
+     "lon": 8.891766,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"S. Quasimodo\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "02 6173001",
+   "sito": "https://www.liceoquasimodo.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g10"
+   ],
+   "s": [
+    {
+     "a": "Via Alessandro Volta, 25",
+     "c": "Magenta",
+     "raw": "Via Alessandro Volta, 25, MAGENTA",
+     "lat": 45.4598862,
+     "lon": 8.8457752,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Cristoforo Colombo, 16/18",
+     "c": "Magenta",
+     "raw": "Via Cristoforo Colombo, 16/18, MAGENTA",
+     "lat": 45.4653931,
+     "lon": 8.8838429,
+     "acc": "comune"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"S. Quasimodo\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "02 9794892",
+   "sito": "https://www.liceoquasimodo.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via Volta, 25",
+     "c": "Magenta",
+     "raw": "Via Volta, 25, MAGENTA",
+     "lat": 45.4672112,
+     "lon": 8.8842454,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"S. Quasimodo\"",
+   "t": "statale",
+   "c": "Magenta",
+   "tel": "029794892",
+   "sito": "https://www.liceoquasimodo.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g14"
+   ],
+   "s": [
+    {
+     "a": "Via Cadorna, 12",
+     "c": "Magenta",
+     "raw": "Via Cadorna, 12, MAGENTA",
+     "lat": 45.4715529,
+     "lon": 8.882002,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Centro Scolastico \"Giovanni Paolo II\"",
+   "t": "paritaria",
+   "c": "Melegnano",
+   "tel": "02 9834057",
+   "sito": "https://www.fedtm.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Piave, 12",
+     "c": "Melegnano",
+     "raw": "Via Piave, 12, MELEGNANO",
+     "lat": 45.3573862,
+     "lon": 9.3290872,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Piero della Francesca\"",
+   "t": "statale",
+   "c": "Melegnano",
+   "tel": "02 9836221",
+   "sito": "https://www.iisdellafra.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Cavour, 5",
+     "c": "Melegnano",
+     "raw": "Via Cavour, 5, MELEGNANO",
+     "lat": 45.3603036,
+     "lon": 9.3251494,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"V. Benini\"",
+   "t": "statale",
+   "c": "Melegnano",
+   "tel": "02 9836225",
+   "sito": "https://www.istitutobenini.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Viale Predabissi, 3",
+     "c": "Melegnano",
+     "raw": "Viale Predabissi, 3, MELEGNANO",
+     "lat": 45.3547787,
+     "lon": 9.3245145,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"V. Benini\"",
+   "t": "statale",
+   "c": "Melegnano",
+   "tel": "02 9830658",
+   "sito": "https://www.istitutobenini.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Cavour, 1",
+     "c": "Melegnano",
+     "raw": "Via Cavour, 1, MELEGNANO",
+     "lat": 45.3603036,
+     "lon": 9.3251494,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Argentia-Majorana\"",
+   "t": "statale",
+   "c": "Melzo",
+   "tel": "02 9550903",
+   "sito": "https://www.argentiamajorana.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Viale Germania, 6",
+     "c": "Melzo",
+     "raw": "Viale Germania, 6, MELZO",
+     "lat": 45.5081427,
+     "lon": 9.4206872,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Argentia-Majorana\"",
+   "t": "statale",
+   "c": "Melzo",
+   "tel": ", 02 9550903",
+   "sito": "https://www.argentiamajorana.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via Germania, 6",
+     "c": "Melzo",
+     "raw": "Via Germania, 6, MELZO",
+     "lat": 45.5081427,
+     "lon": 9.4206872,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS Argentia-Majorana",
+   "t": "statale",
+   "c": "Melzo",
+   "tel": "02 9550903",
+   "sito": "https://www.argentiamajorana.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g20"
+   ],
+   "s": [
+    {
+     "a": "Viale Germania, 34",
+     "c": "Melzo",
+     "raw": "Viale Germania, 34, MELZO",
+     "lat": 45.5061605,
+     "lon": 9.4185507,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"G. Bruno\"",
+   "t": "statale",
+   "c": "Melzo",
+   "tel": "02 9552257",
+   "sito": "https://www.liceo-melzocassano.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Viale Svezia, 4",
+     "c": "Melzo",
+     "raw": "Viale Svezia, 4, MELZO",
+     "lat": 45.5065602,
+     "lon": 9.4146419,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"I. Calvino\"",
+   "t": "statale",
+   "c": "Opera",
+   "tel": "02 5300901",
+   "sito": "https://www.istitutocalvino.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g15",
+    "g18"
+   ],
+   "s": [
+    {
+     "a": "Via Marx, 4",
+     "c": "Opera",
+     "raw": "Via Marx, 4, OPERA",
+     "lat": 45.3922949,
+     "lon": 9.2138597,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Gadda\"",
+   "t": "statale",
+   "c": "Paderno Dugnano",
+   "tel": "02 9183246",
+   "sito": "https://www.iisgadda.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g19",
+    "g23"
+   ],
+   "s": [
+    {
+     "a": "Via Leonardo da Vinci, 18",
+     "c": "Paderno Dugnano",
+     "raw": "Via Leonardo da Vinci, 18, PADERNO DUGNANO",
+     "lat": 45.5728488,
+     "lon": 9.1594673,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS G. Maggiolini",
+   "t": "statale",
+   "c": "Parabiago",
+   "tel": "0331 552001",
+   "sito": "https://www.itetmaggiolini.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Spagliardi, 19",
+     "c": "Parabiago",
+     "raw": "Via Spagliardi, 19, PARABIAGO",
+     "lat": 45.5598285,
+     "lon": 8.9506159,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITET \"G. Maggiolini\"",
+   "t": "statale",
+   "c": "Parabiago",
+   "tel": "0331 552001",
+   "sito": "https://www.itetmaggiolini.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Spagliardi, 19",
+     "c": "Parabiago",
+     "raw": "Via Spagliardi, 19, PARABIAGO",
+     "lat": 45.5598285,
+     "lon": 8.9506159,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"C. Cavalleri\"",
+   "t": "statale",
+   "c": "Parabiago",
+   "tel": "0331 552206",
+   "sito": "https://www.liceocavalleri.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g12",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Spagliardi, 23",
+     "c": "Parabiago",
+     "raw": "Via Spagliardi, 23, PARABIAGO",
+     "lat": 45.5586565,
+     "lon": 8.9516632,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"N. Machiavelli\"",
+   "t": "statale",
+   "c": "Pioltello",
+   "tel": "02 92100686",
+   "sito": "https://www.iismachiavelli.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g19",
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Milano, 1B",
+     "c": "Pioltello",
+     "raw": "Via Milano, 1B, PIOLTELLO",
+     "lat": 45.5016991,
+     "lon": 9.3360288,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"N. Machiavelli\"",
+   "t": "statale",
+   "c": "Pioltello",
+   "tel": "02 7539901",
+   "sito": "https://www.iismachiavelli.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Machiavelli, 3",
+     "c": "Pioltello",
+     "raw": "Via Machiavelli, 3, PIOLTELLO",
+     "lat": 45.4778253,
+     "lon": 9.3085748,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"N. Machiavelli\"",
+   "t": "statale",
+   "c": "Pioltello",
+   "tel": "02 7539901",
+   "sito": "https://www.iismachiavelli.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via N.Machiavelli, 3",
+     "c": "Pioltello",
+     "raw": "Via N.Machiavelli, 3, PIOLTELLO",
+     "lat": 45.4778253,
+     "lon": 9.3085748,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS Machiavelli",
+   "t": "statale",
+   "c": "Pioltello",
+   "tel": "02 92100686",
+   "sito": "https://www.iismachiavelli.edu.it/",
+   "note": "*corso in attesa di ratifica da parte di Regione Lombardia",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "via Milano 1/a",
+     "c": "Pioltello",
+     "raw": "via Milano 1/a, PIOLTELLO",
+     "lat": 45.5015959,
+     "lon": 9.3344254,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Puecher Oliveti\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9302236",
+   "sito": "https://www.puecherolivetti.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Bersaglio, 56",
+     "c": "Rho",
+     "raw": "Via Bersaglio, 56, RHO",
+     "lat": 45.5354514,
+     "lon": 9.0500893,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Puecher Olivetti\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9302236",
+   "sito": "https://www.puecherolivetti.edu.it",
+   "note": "Settore produzioni tessili sartoriali",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g33"
+   ],
+   "s": [
+    {
+     "a": "Via Bersaglio, 56",
+     "c": "Rho",
+     "raw": "Via Bersaglio, 56, RHO",
+     "lat": 45.5354514,
+     "lon": 9.0500893,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Puecher Olivetti\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9309557",
+   "sito": "https://www.puecherolivetti.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Martiri della libertà, 20",
+     "c": "Rho",
+     "raw": "Via Martiri della libertà, 20, RHO",
+     "lat": 45.5308616,
+     "lon": 9.0430806,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IT \"E. Mattei\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9399832",
+   "sito": "https://wwww.matteirho.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19",
+    "g21",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Padre L.Vaiani, 18",
+     "c": "Rho",
+     "raw": "Via Padre L.Vaiani, 18, RHO",
+     "lat": 45.5386686,
+     "lon": 9.0379049,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IT Mattei",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "029399831",
+   "sito": "https://matteirho.edu.it/",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "via Padre Vaiani 18",
+     "c": "Rho",
+     "raw": "via Padre Vaiani 18, RHO",
+     "lat": 45.5386686,
+     "lon": 9.0379049,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI \"S. Cannizzaro\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9303576",
+   "sito": "https://www.itiscannizzaro.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g20",
+    "g23",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Sanzio, 2",
+     "c": "Rho",
+     "raw": "Via Sanzio, 2, RHO",
+     "lat": 45.5257166,
+     "lon": 9.0386181,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITI Cannizzaro",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "029303576",
+   "sito": "https://www.itiscannizzaro.edu.it/",
+   "note": "*corso in attesa di ratifica da parte di Regione Lombardia",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g20"
+   ],
+   "s": [
+    {
+     "a": "via R.Sanzio 2",
+     "c": "Rho",
+     "raw": "via R.Sanzio 2, RHO",
+     "lat": 45.5257166,
+     "lon": 9.0386181,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"C. Rebora\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 93906117",
+   "sito": "https://www.liceorebora.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8"
+   ],
+   "s": [
+    {
+     "a": "Via Papa Giovanni XXIII, 15",
+     "c": "Rho",
+     "raw": "Via Papa Giovanni XXIII, 15, RHO",
+     "lat": 45.5321604,
+     "lon": 9.0274747,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"C. Rebora\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 93162461",
+   "sito": "https://www.liceorebora.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Via Piero della Francesca, 15",
+     "c": "Rho",
+     "raw": "Via Piero della Francesca, 15, RHO",
+     "lat": 45.5256855,
+     "lon": 9.0380998,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"E. Majorana\"",
+   "t": "statale",
+   "c": "Rho",
+   "tel": "02 9302358",
+   "sito": "https://www.liceomajoranarho.edu.it",
+   "note": "Anche percorso quadriennale",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12",
+    "g15",
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via Ratti, 88",
+     "c": "Rho",
+     "raw": "Via Ratti, 88, RHO",
+     "lat": 45.540266,
+     "lon": 9.0452434,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"I. Calvino\"",
+   "t": "statale",
+   "c": "Rozzano",
+   "tel": "02 57500115",
+   "sito": "https://www.istitutocalvino.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g15",
+    "g19"
+   ],
+   "s": [
+    {
+     "a": "Via G.Rossa, 4",
+     "c": "Rozzano",
+     "raw": "Via G.Rossa, 4, ROZZANO",
+     "lat": 45.3780669,
+     "lon": 9.1487243,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Mattei\"",
+   "t": "statale",
+   "c": "San Donato Milanese",
+   "tel": "02 55691411",
+   "sito": "https://www.itismattei.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Via Martiri di Cefalonia, 46",
+     "c": "San Donato Milanese",
+     "raw": "Via Martiri di Cefalonia, 46, SAN DONATO MILANESE",
+     "lat": 45.4182993,
+     "lon": 9.271851,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"Piero della Francesca\"",
+   "t": "statale",
+   "c": "San Donato Milanese",
+   "tel": "02 55691311",
+   "sito": "https://www.iisdellafra.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g19",
+    "g21",
+    "g35",
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Martiri di Cefalonia, 46",
+     "c": "San Donato Milanese",
+     "raw": "Via Martiri di Cefalonia, 46, SAN DONATO MILANESE",
+     "lat": 45.4182993,
+     "lon": 9.271851,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Primo Levi\"",
+   "t": "statale",
+   "c": "San Donato Milanese",
+   "tel": "02 55691211",
+   "sito": "https://www.levi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g8",
+    "g15"
+   ],
+   "s": [
+    {
+     "a": "Via Martiri di Cefalonia, 46",
+     "c": "San Donato Milanese",
+     "raw": "Via Martiri di Cefalonia, 46, SAN DONATO MILANESE",
+     "lat": 45.4182993,
+     "lon": 9.271851,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Liceo \"Primo Levi\"",
+   "t": "statale",
+   "c": "San Giuliano Milanese",
+   "tel": "02 98243298",
+   "sito": "https://www.levi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Via Trieste, 48",
+     "c": "San Giuliano Milanese",
+     "raw": "Via Trieste, 48, SAN GIULIANO MILANESE",
+     "lat": 45.3948689,
+     "lon": 9.2881433,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Spinelli\"",
+   "t": "statale",
+   "c": "Sesto San Giovanni",
+   "tel": "02 2403441",
+   "sito": "https://www.iisaltierospinelli.it",
+   "note": "",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g22",
+    "g24",
+    "g25",
+    "g34"
+   ],
+   "s": [
+    {
+     "a": "Via Leopardi, 132",
+     "c": "Sesto San Giovanni",
+     "raw": "Via Leopardi, 132, SESTO SAN GIOVANNI",
+     "lat": 45.5386303,
+     "lon": 9.2240867,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"A. Spinelli\"",
+   "t": "statale",
+   "c": "Sesto San Giovanni",
+   "tel": "02 2403441/2",
+   "sito": "https://www.iisaltierospinelli.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g17"
+   ],
+   "s": [
+    {
+     "a": "Via G.Leopardi, 32",
+     "c": "Sesto San Giovanni",
+     "raw": "Via G.Leopardi, 32, SESTO SAN GIOVANNI",
+     "lat": 45.538312,
+     "lon": 9.2280499,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. De Nicola\"",
+   "t": "statale",
+   "c": "Sesto San Giovanni",
+   "tel": "02 26224610",
+   "sito": "https://www.iisdenicola.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g1",
+    "g2",
+    "g7",
+    "g19",
+    "g21"
+   ],
+   "s": [
+    {
+     "a": "Via Saint Denis, 200",
+     "c": "Sesto San Giovanni",
+     "raw": "Via Saint Denis, 200, SESTO SAN GIOVANNI",
+     "lat": 45.5396885,
+     "lon": 9.2229779,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IM \"Erasmo Da Rotterdam\"",
+   "t": "statale",
+   "c": "Sesto San Giovanni",
+   "tel": "02 2428129",
+   "sito": "https://www.erasmosesto.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g10",
+    "g12"
+   ],
+   "s": [
+    {
+     "a": "Viale Italia, 409",
+     "c": "Sesto San Giovanni",
+     "raw": "Viale Italia, 409, SESTO SAN GIOVANNI",
+     "lat": 45.5347123,
+     "lon": 9.2426965,
+     "acc": "ok"
+    },
+    {
+     "a": "Via Livorno",
+     "c": "Sesto San Giovanni",
+     "raw": "Via Livorno, SESTO SAN GIOVANNI",
+     "lat": 45.5205637,
+     "lon": 9.2482323,
+     "acc": "via"
+    }
+   ]
+  },
+  {
+   "n": "IM \"Erasmo Da Rotterdam\"",
+   "t": "statale",
+   "c": "Sesto San Giovanni",
+   "tel": "02 2428129",
+   "sito": "https://www.erasmosesto.edu.it",
+   "note": "",
+   "ord": [
+    "liceale"
+   ],
+   "i": [
+    "g11"
+   ],
+   "s": [
+    {
+     "a": "Viale Italia, 409 / Via Livorno",
+     "c": "Sesto San Giovanni",
+     "raw": "Viale Italia, 409 / Via Livorno, SESTO SAN GIOVANNI",
+     "lat": 45.5347123,
+     "lon": 9.2426965,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "Salesiani \"Breda Opere Sociali Don Bosco\"",
+   "t": "paritaria",
+   "c": "Sesto San Giovanni",
+   "tel": "02 262921",
+   "sito": "https://www.salesianisesto.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g10",
+    "g15",
+    "g17",
+    "g22",
+    "g24",
+    "g25"
+   ],
+   "s": [
+    {
+     "a": "Via G.Matteotti, 425",
+     "c": "Sesto San Giovanni",
+     "raw": "Via G.Matteotti, 425, SESTO SAN GIOVANNI",
+     "lat": 45.5361936,
+     "lon": 9.2257603,
+     "acc": "override"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"M. Bellisario\"",
+   "t": "statale",
+   "c": "Trezzo Sull'Adda",
+   "tel": "02 9090117",
+   "sito": "https://www.iisbellisario.edu.it",
+   "note": "",
+   "ord": [
+    "professionale"
+   ],
+   "i": [
+    "g37"
+   ],
+   "s": [
+    {
+     "a": "Via Curiel, 4",
+     "c": "Trezzo Sull'Adda",
+     "raw": "Via Curiel, 4, TREZZO SULL'ADDA",
+     "lat": 45.6145308,
+     "lon": 9.5118065,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "ITC \"J. Nizzola\"",
+   "t": "statale",
+   "c": "Trezzo Sull'Adda",
+   "tel": "02 90961521",
+   "sito": "https://www.jacoponizzola.edu.it",
+   "note": "",
+   "ord": [
+    "tecnica"
+   ],
+   "i": [
+    "g19",
+    "g21",
+    "g28"
+   ],
+   "s": [
+    {
+     "a": "Via Nenni, 10",
+     "c": "Trezzo Sull'Adda",
+     "raw": "Via Nenni, 10, TREZZO SULL'ADDA",
+     "lat": 45.6141072,
+     "lon": 9.5085881,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"G. Mendel\"",
+   "t": "statale",
+   "c": "Villa Cortese",
+   "tel": "0331 434311",
+   "sito": "https://www.agrariomendel.edu.it",
+   "note": "Solo serale ad integrazione del percorso IEFP diurno",
+   "ord": [
+    "tecnica",
+    "professionale"
+   ],
+   "i": [
+    "g18",
+    "g29"
+   ],
+   "s": [
+    {
+     "a": "Via Ferrazzi, 15",
+     "c": "Villa Cortese",
+     "raw": "Via Ferrazzi, 15, VILLA CORTESE",
+     "lat": 45.566285,
+     "lon": 8.8882834,
+     "acc": "ok"
+    }
+   ]
+  },
+  {
+   "n": "IIS \"E. Alessandrini\"",
+   "t": "statale",
+   "c": "Vittuone",
+   "tel": "02 90111011",
+   "sito": "https://www.alessandrinimainardi.edu.it",
+   "note": "",
+   "ord": [
+    "liceale",
+    "tecnica"
+   ],
+   "i": [
+    "g17",
+    "g22",
+    "g24"
+   ],
+   "s": [
+    {
+     "a": "Viale Zara. 23C",
+     "c": "Vittuone",
+     "raw": "Viale Zara. 23C, VITTUONE",
+     "lat": 45.487969,
+     "lon": 8.952442,
+     "acc": "comune"
+    }
+   ]
+  }
+ ]
+};
+const SHARE_URL = location.href;
+
+const ORD = {
+  liceale:        { label: 'Licei',         color: '#4f8cff', cls: 'ord-liceale' },
+  tecnica:        { label: 'Tecnici',       color: '#25b26b', cls: 'ord-tecnica' },
+  professionale: { label: 'Professionali', color: '#f0a020', cls: 'ord-professionale' }
+};
+const INDI = {};
+DATA.indirizzi.forEach(i => { INDI[i.id] = i; });
+
+const state = {
+  q: '', tipi: new Set(['statale','paritaria']),
+  ordini: new Set(['liceale','tecnica','professionale']),
+  comune: '', ind: new Set(), selected: null
+};
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const gmSearch = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+const gmDir    = q => 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent('Duomo di Milano') + '&destination=' + encodeURIComponent(q);
+const gmEmbed  = q => 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&z=16&output=embed';
+
+const map = L.map('map', { zoomControl: true, preferCanvas: true, tap: true }).setView([45.5, 9.16], 10);
+map.zoomControl.setPosition('topleft');
+
+const bases = {
+  google: L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { subdomains:['mt0','mt1','mt2','mt3'], maxZoom: 20, attribution: 'Google' }),
+  sat:    L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains:['mt0','mt1','mt2','mt3'], maxZoom: 20, attribution: 'Google' }),
+  osm:    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: 'OpenStreetMap' })
+};
+let switched = false, tileErrors = 0;
+bases.google.addTo(map);
+bases.google.on('tileerror', () => {
+  if (switched) return;
+  if (++tileErrors >= 6) { switched = true; setBase('osm'); toast('Tile Google non raggiungibili: passato a OpenStreetMap'); }
+});
+function setBase(k) {
+  Object.values(bases).forEach(l => map.removeLayer(l));
+  bases[k].addTo(map);
+  document.querySelectorAll('#legend [data-base]').forEach(b => b.classList.toggle('on', b.dataset.base === k));
+}
+document.querySelectorAll('#legend [data-base]').forEach(b => b.onclick = () => setBase(b.dataset.base));
+
+const markerLayer = L.featureGroup().addTo(map);
+let allBounds = null;
+
+/* ---------------- filtri ---------------- */
+const ordChips = document.getElementById('ordChips');
+const ordCounts = { liceale: 0, tecnica: 0, professionale: 0 };
+DATA.scuole.forEach(s => s.ord.forEach(o => ordCounts[o]++));
+Object.keys(ORD).forEach(k => {
+  const c = document.createElement('span');
+  c.className = 'chip on ' + (k === 'tecnica' ? 'green' : k === 'professionale' ? 'amber' : '');
+  c.dataset.ord = k;
+  c.innerHTML = ORD[k].label + ' <span class="n">' + ordCounts[k] + '</span>';
+  c.onclick = () => {
+    if (state.ordini.has(k)) { state.ordini.delete(k); c.classList.remove('on'); }
+    else { state.ordini.add(k); c.classList.add('on'); }
+    render();
+  };
+  ordChips.appendChild(c);
+});
+
+document.querySelectorAll('#tipoChips .chip').forEach(c => {
+  c.onclick = () => {
+    const t = c.dataset.tipo;
+    if (state.tipi.has(t)) { state.tipi.delete(t); c.classList.remove('on'); }
+    else { state.tipi.add(t); c.classList.add('on'); }
+    render();
+  };
+});
+
+const indBox = document.getElementById('indChips');
+const groups = {};
+DATA.indirizzi.forEach(i => { (groups[i.ordine] = groups[i.ordine] || []).push(i); });
+['liceale','tecnica','professionale'].forEach(o => {
+  if (!groups[o]) return;
+  const g = document.createElement('div');
+  g.className = 'indgroup';
+  g.innerHTML = '<h4>' + ORD[o].label + '</h4>';
+  const box = document.createElement('div');
+  box.className = 'chips';
+  groups[o].forEach(i => {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.dataset.ind = i.id;
+    c.textContent = i.label.replace(/^Liceo\s*/i, '').replace(/^Istruzione\s*/i, '');
+    c.onclick = () => {
+      if (state.ind.has(i.id)) { state.ind.delete(i.id); c.classList.remove('on'); }
+      else { state.ind.add(i.id); c.classList.add('on'); }
+      render();
+    };
+    box.appendChild(c);
+  });
+  g.appendChild(box);
+  indBox.appendChild(g);
+});
+
+const comuneSel = document.getElementById('comune');
+DATA.comuni.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; comuneSel.appendChild(o); });
+comuneSel.onchange = () => { state.comune = comuneSel.value; render(); };
+
+document.getElementById('search').oninput = e => { state.q = e.target.value.toLowerCase().trim(); render(); };
+document.getElementById('reset').onclick = () => {
+  state.q = ''; state.ind.clear(); state.comune = '';
+  state.tipi = new Set(['statale','paritaria']);
+  state.ordini = new Set(['liceale','tecnica','professionale']);
+  document.getElementById('search').value = '';
+  comuneSel.value = '';
+  document.querySelectorAll('#tipoChips .chip').forEach(c => c.classList.add('on'));
+  ordChips.querySelectorAll('.chip').forEach(c => c.classList.add('on'));
+  indBox.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  render();
+};
+document.getElementById('applyFilters').onclick = () => closeFilters();
+document.getElementById('openFilters').onclick = () => openFilters();
+document.getElementById('closeFilters').onclick = () => closeFilters();
+document.getElementById('btnFit').onclick = () => { if (allBounds) map.fitBounds(allBounds, { padding: [24, 24] }); };
+document.getElementById('btnLegend').onclick = () => document.getElementById('legend').classList.toggle('open');
+document.getElementById('btnShare').onclick = async () => {
+  const payload = {
+    title: 'Mappa delle scuole di Milano e provincia',
+    text: 'Mappa interattiva di licei, istituti tecnici e professionali di Milano e dei 34 comuni della Città Metropolitana.',
+    url: SHARE_URL
+  };
+  try {
+    if (navigator.share) { await navigator.share(payload); return; }
+    await navigator.clipboard.writeText(payload.url);
+    toast(payload.url.startsWith('file:') ? 'Questa è la versione locale: condividi il link della versione online' : 'Link copiato negli appunti');
+  } catch (e) {
+    toast('Condivisione non disponibile su questo dispositivo');
+  }
+};
+document.getElementById('closeModal').onclick = () => {
+  document.getElementById('modal').classList.remove('open');
+  state.selected = null;
+  map.setZoom(map.getZoom());
+};
+
+function openFilters() {
+  document.getElementById('filters').classList.add('open');
+  document.getElementById('legend').classList.remove('open');
+}
+function closeFilters() { document.getElementById('filters').classList.remove('open'); }
+
+/* ---------------- match ---------------- */
+function matches(sc) {
+  if (!state.tipi.has(sc.t)) return false;
+  if (!sc.ord.some(o => state.ordini.has(o))) return false;
+  if (state.comune && sc.c !== state.comune) return false;
+  if (state.ind.size) {
+    let ok = false;
+    sc.i.forEach(id => { if (state.ind.has(id)) ok = true; });
+    if (!ok) return false;
+  }
+  if (state.q) {
+    const hay = (sc.n + ' ' + sc.t + ' ' + (sc.tel || '') + ' ' + sc.c + ' ' + sc.s.map(s => s.a).join(' ') + ' ' +
+                 sc.i.map(id => INDI[id].label).join(' ')).toLowerCase();
+    if (!hay.includes(state.q)) return false;
+  }
+  return true;
+}
+
+/* ---------------- marker ---------------- */
+function popupHtml(sc, sede) {
+  const q = sede.a + ', ' + sede.c;
+  const tags = sc.i.map(id => `<span class="tag">${esc(INDI[id].label)}</span>`).join(' ');
+  return `<div class="pop">
+    <h4>${esc(sc.n)}</h4>
+    <div class="ad">${esc(sede.a)}, ${esc(sede.c)}</div>
+    ${sc.tel ? `<div class="ad" style="margin-top:4px">Tel. ${esc(sc.tel)}</div>` : ''}
+    <div class="tags" style="margin-top:6px">${tags}</div>
+    <a class="gm" target="_blank" rel="noopener" href="${gmSearch(q)}">Apri in Google Maps</a>
+  </div>`;
+}
+const IS_TOUCH = window.matchMedia('(hover: none)').matches;
+
+function addMarkers(sc) {
+  sc.s.forEach(sede => {
+    if (!sede.lat || !sede.lon) return;
+    const ord = ORD[sc.ord[0]] || ORD.liceale;
+    const m = L.circleMarker([sede.lat, sede.lon], {
+      radius: 8, color: '#0b0e12', weight: 2, fillColor: ord.color, fillOpacity: .95,
+      dashArray: sc.t === 'paritaria' ? '3 2' : null
+    });
+    if (!IS_TOUCH) m.bindPopup(popupHtml(sc, sede));
+    m.on('click', () => openDetail(sc, false));
+    m.addTo(markerLayer);
+  });
+}
+
+/* ---------------- elenco ---------------- */
+const listEl = document.getElementById('list');
+function cardHtml(sc) {
+  const tags = sc.i.map(id => `<span class="tag">${esc(INDI[id].label)}</span>`).join('');
+  const badges = sc.ord.map(o => `<span class="badge ${ORD[o].cls}">${ORD[o].label}</span>`).join('') +
+    `<span class="badge ${sc.t}">${sc.t === 'statale' ? 'Statale' : 'Paritaria'}</span>`;
+  const addrs = sc.s.map(s => `<div><span class="d">•</span> ${esc(s.a)}, ${esc(s.c)}</div>`).join('');
+  return `<div class="card" data-n="${esc(sc.n)}">
+    <div class="nm">${esc(sc.n)}${badges}</div>
+    <div class="tags">${tags}</div>
+    <div class="addrs">${addrs}</div>
+    ${sc.note ? `<div class="note">${esc(sc.note)}</div>` : ''}
+    <div class="meta">
+      <span class="tel">Tel. ${esc(sc.tel || '-')}</span>
+      <button class="mini" data-gm="${esc(sc.s[0].a + ', ' + sc.s[0].c)}">Maps</button>
+      <button class="mini" data-gd="${esc(sc.s[0].a + ', ' + sc.s[0].c)}">Indicazioni</button>
+    </div>
+  </div>`;
+}
+listEl.addEventListener('click', e => {
+  const gm = e.target.closest('[data-gm]');
+  if (gm) { e.stopPropagation(); window.open(gmSearch(gm.dataset.gm), '_blank'); return; }
+  const gd = e.target.closest('[data-gd]');
+  if (gd) { e.stopPropagation(); window.open(gmDir(gd.dataset.gd), '_blank'); return; }
+  const card = e.target.closest('.card');
+  if (!card) return;
+  const sc = DATA.scuole.find(s => s.n === card.dataset.n);
+  if (sc) openDetail(sc, true);
+});
+
+/* ---------------- dettaglio ---------------- */
+const modal = document.getElementById('modal');
+function openDetail(sc, pan) {
+  state.selected = sc;
+  const sedi = sc.s.map(s => `
+    <div class="sede">
+      <div class="a"><b>${esc(s.a)}</b>, ${esc(s.c)}${s.acc === 'comune' ? ' <span class="approx">posizione approssimativa</span>' : ''}</div>
+      <div class="l">
+        <a href="${gmSearch(s.a + ', ' + s.c)}" target="_blank" rel="noopener">Apri in Google Maps</a>
+        <a href="${gmDir(s.a + ', ' + s.c)}" target="_blank" rel="noopener">Come arrivare</a>
+        <button data-embed="${esc(s.a + ', ' + s.c)}">Mappa Google</button>
+      </div>
+    </div>`).join('');
+  const tags = sc.i.map(id => `<span class="tag">${esc(INDI[id].label)}</span>`).join(' ');
+  const badges = sc.ord.map(o => `<span class="badge ${ORD[o].cls}">${ORD[o].label}</span>`).join(' ') +
+    `<span class="badge ${sc.t}">${sc.t === 'statale' ? 'Statale' : 'Paritaria'}</span>`;
+
+  document.getElementById('modalTitle').textContent = sc.n;
+  document.getElementById('detail').innerHTML = `
+    <div>${badges}</div>
+    <div class="tags" style="margin-top:8px">${tags}</div>
+    ${sc.note ? `<div class="note">${esc(sc.note)}</div>` : ''}
+    <h3>Sedi</h3>${sedi}
+    <div class="row"><b>Comune</b>${esc(sc.c)}</div>
+    <div class="row"><b>Telefono</b>${sc.tel ? '<a href="tel:' + esc(sc.tel.replace(/\s/g, '')) + '" style="color:#7fb0ff">' + esc(sc.tel) + '</a>' : '-'}</div>
+    ${sc.sito ? `<div class="row"><b>Sito web</b><a href="${esc(sc.sito)}" target="_blank" rel="noopener" style="color:#7fb0ff">${esc(sc.sito.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a></div>` : ''}
+    <div class="row"><b>Indirizzi di studio</b>${sc.i.map(id => esc(INDI[id].label)).join(' · ')}</div>
+  `;
+  document.querySelectorAll('#detail [data-embed]').forEach(b => b.onclick = ev => {
+    ev.preventDefault();
+    const host = b.closest('.sede');
+    let f = host.querySelector('iframe');
+    if (f) { f.remove(); b.textContent = 'Mappa Google'; return; }
+    f = document.createElement('iframe');
+    f.src = gmEmbed(b.dataset.embed);
+    host.appendChild(f);
+    b.textContent = 'Nascondi mappa';
+  });
+  modal.classList.add('open');
+
+  if (pan !== false) {
+    const pts = sc.s.filter(s => s.lat).map(s => [s.lat, s.lon]);
+    if (pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.3), { maxZoom: 16, duration: .6 });
+  }
+}
+
+/* ---------------- render ---------------- */
+function render() {
+  markerLayer.clearLayers();
+  const list = DATA.scuole.filter(matches);
+  listEl.innerHTML = list.map(cardHtml).join('');
+  list.forEach(addMarkers);
+  allBounds = markerLayer.getBounds();
+
+  const sedi = list.reduce((a, s) => a + s.s.filter(x => x.lat).length, 0);
+  document.getElementById('sheetTitle').innerHTML = '<b>' + list.length + '</b> istituti · ' + sedi + ' sedi';
+  document.getElementById('filterBadge').textContent =
+    (state.ordini.size < 3 ? 1 : 0) + (state.tipi.size < 2 ? 1 : 0) + (state.comune ? 1 : 0) + (state.ind.size ? 1 : 0);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4200);
+}
+
+/* ---------------- foglio scorrevole ---------------- */
+const sheet = document.getElementById('sheet');
+const handle = document.getElementById('handle');
+const states = { peek: 150, half: Math.round(window.innerHeight * 0.52), full: Math.round(window.innerHeight * 0.88) };
+function setSheet(mode) {
+  sheet.classList.remove('half', 'full');
+  if (mode === 'half') sheet.classList.add('half');
+  if (mode === 'full') sheet.classList.add('full');
+  sheet.dataset.mode = mode;
+  setTimeout(() => map.invalidateSize(), 260);
+}
+setSheet('peek');
+
+let dragY = 0, dragH = 0, dragging = false;
+handle.addEventListener('touchstart', e => {
+  dragging = true;
+  dragY = e.touches[0].clientY;
+  dragH = sheet.getBoundingClientRect().height;
+  sheet.style.transition = 'none';
+}, { passive: true });
+handle.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const dy = e.touches[0].clientY - dragY;
+  let h = dragH - dy;
+  h = Math.max(90, Math.min(window.innerHeight * 0.9, h));
+  sheet.style.height = h + 'px';
+  e.preventDefault();
+}, { passive: false });
+handle.addEventListener('touchend', e => {
+  if (!dragging) return;
+  dragging = false;
+  sheet.style.transition = '';
+  const h = sheet.getBoundingClientRect().height;
+  const cur = sheet.dataset.mode;
+  const order = ['peek', 'half', 'full'];
+  const idx = order.indexOf(cur);
+  let next = cur;
+  if (h < (states.peek + states.half) / 2) next = 'peek';
+  else if (h < (states.half + states.full) / 2) next = 'half';
+  else next = 'full';
+  sheet.style.height = '';
+  setSheet(next);
+  void idx;
+});
+handle.addEventListener('click', () => {
+  const cur = sheet.dataset.mode;
+  setSheet(cur === 'peek' ? 'half' : cur === 'half' ? 'full' : 'peek');
+});
+listEl.addEventListener('scroll', () => {
+  if (sheet.dataset.mode === 'peek') setSheet('half');
+}, { passive: true });
+
+window.addEventListener('orientationchange', () => setTimeout(() => { map.invalidateSize(); setSheet(sheet.dataset.mode); }, 300));
+
+render();
+if (allBounds && allBounds.isValid()) map.fitBounds(allBounds, { padding: [24, 24] });
+</script>
+</body>
+</html>
